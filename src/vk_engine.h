@@ -26,6 +26,12 @@ public:
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
 
+	VkRenderPass _renderPass;
+	std::vector<VkFramebuffer> _framebuffers;
+
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
+
 	bool _isInitialized{ false };
 	int _frameNumber {0};
 
@@ -50,4 +56,10 @@ private:
 	void init_swapchain();
 
 	void init_command();
+
+	void init_default_renderpass();
+
+	void init_framebuffers();
+
+	void init_sync_structures();
 };
