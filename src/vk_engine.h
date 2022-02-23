@@ -5,6 +5,34 @@
 
 #include <vk_types.h>
 #include <vector>
+#include <deque>
+#include <functional>
+
+enum ShaderType {
+	ShaderType_Fragment,
+	ShaderType_Vertex,
+	ShaderType_Compute,
+};
+
+struct DeletionQueue
+{
+	std::deque<std::function<void()>> deletors;
+
+	void push_function(std::function<void()>&& function)
+	{
+		deletors.push_back(function);
+	}
+
+	void flush()
+	{
+		for (auto it = deletors.rbegin(); it != deletors.rend(); ++it)
+		{
+			(*it)();
+		}
+
+		deletors.clear();
+	}
+};
 
 class VulkanEngine {
 public:
@@ -32,6 +60,14 @@ public:
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
+	VkPipeline _trianglePipeline;
+	VkPipeline _redTrianglePipeline;
+	VkPipelineLayout _trianglePipelineLayout;
+
+	DeletionQueue _mainDeletionQueue;
+
+	int _selectedShader{ 0 };
+
 	bool _isInitialized{ false };
 	int _frameNumber {0};
 
@@ -50,6 +86,10 @@ public:
 
 	//run main loop
 	void run();
+
+	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
+
+	bool load_shader_module_with_log(const char* filePath, VkShaderModule* outShaderModule, ShaderType shaderType);
 private:
 	void init_vulkan();
 
@@ -62,4 +102,10 @@ private:
 	void init_framebuffers();
 
 	void init_sync_structures();
+
+	void init_pipelines();
+
+	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader);
+private:
+	void clear_vulkan();
 };
