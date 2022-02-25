@@ -1,4 +1,5 @@
 ﻿#include <vk_initializers.h>
+#include "vk_mesh.h"
 
 VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags)
 {
@@ -37,14 +38,25 @@ VkPipelineShaderStageCreateInfo vkinit::pipeline_shader_stage_create_info(VkShad
 	return info;
 }
 
-VkPipelineVertexInputStateCreateInfo vkinit::vertex_input_state_create_info()
+VkPipelineVertexInputStateCreateInfo vkinit::vertex_input_state_create_info(VertexInputDescription* pInputDesc)
 {
 	VkPipelineVertexInputStateCreateInfo info{};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	info.pNext = nullptr;
 
-	info.vertexBindingDescriptionCount = 0;
-	info.vertexAttributeDescriptionCount = 0;
+	if (pInputDesc != nullptr)
+	{
+		info.vertexBindingDescriptionCount = pInputDesc->bindings.size();
+		info.pVertexBindingDescriptions = pInputDesc->bindings.data();
+		info.vertexAttributeDescriptionCount = pInputDesc->attributes.size();
+		info.pVertexAttributeDescriptions = pInputDesc->attributes.data();
+	}
+	else
+	{
+		info.vertexBindingDescriptionCount = 0;
+		info.vertexAttributeDescriptionCount = 0;
+	}
+	
 	return info;
 }
 
@@ -103,7 +115,7 @@ VkPipelineColorBlendAttachmentState vkinit::color_blend_attachment_state()
 	return colorBlendAttachment;
 }
 
-VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info()
+VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info(const std::vector<VkPushConstantRange>& constantRanges)
 {
 	VkPipelineLayoutCreateInfo info{};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -112,8 +124,8 @@ VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info()
 	info.flags = 0;
 	info.setLayoutCount = 0;
 	info.pSetLayouts = nullptr;
-	info.pushConstantRangeCount = 0;
-	info.pPushConstantRanges = nullptr;
+	info.pushConstantRangeCount = constantRanges.size();
+	info.pPushConstantRanges = constantRanges.data();
 
 	return info;
 }

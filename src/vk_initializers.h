@@ -4,6 +4,7 @@
 #pragma once
 
 #include <vk_types.h>
+#include "vk_mesh.h"
 
 namespace vkinit {
 
@@ -14,7 +15,7 @@ namespace vkinit {
 
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shaderModule);
 
-	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info();
+	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info(VertexInputDescription* pInputDesc);
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info(VkPrimitiveTopology topology);
 
@@ -24,6 +25,6 @@ namespace vkinit {
 
 	VkPipelineColorBlendAttachmentState color_blend_attachment_state();
 
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info();
+	VkPipelineLayoutCreateInfo pipeline_layout_create_info(const std::vector<VkPushConstantRange>& constantRanges);
 }
 

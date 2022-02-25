@@ -8,6 +8,16 @@
 #include <deque>
 #include <functional>
 
+#include "vk_mem_alloc.h"
+#include "vk_mesh.h"
+
+#include <glm/glm.hpp>
+
+struct PipelineConstants {
+	glm::vec4 data;
+	glm::mat4 render_matrix;
+};
+
 enum ShaderType {
 	ShaderType_Fragment,
 	ShaderType_Vertex,
@@ -64,6 +74,11 @@ public:
 	VkPipeline _redTrianglePipeline;
 	VkPipelineLayout _trianglePipelineLayout;
 
+	VkPipeline _meshPipeline;
+	Mesh _triangleMesh;
+
+	VmaAllocator _allocator;
+
 	DeletionQueue _mainDeletionQueue;
 
 	int _selectedShader{ 0 };
@@ -105,7 +120,11 @@ private:
 
 	void init_pipelines();
 
-	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader);
+	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader, VertexInputDescription* pInputDesc);
+
+	void load_meshes();
+
+	void upload_mesh(Mesh& mesh);
 private:
 	void clear_vulkan();
 };
