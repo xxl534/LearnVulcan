@@ -129,3 +129,13 @@ VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info(const std::vector
 
 	return info;
 }
+
+VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+{
+	return VkImageCreateInfo();
+}
+
+VkImageViewCreateInfo vkinit::imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+{
+	return VkImageViewCreateInfo();
+}

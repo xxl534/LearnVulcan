@@ -77,6 +77,8 @@ public:
 	VkPipeline _meshPipeline;
 	Mesh _triangleMesh;
 
+	Mesh _monkeyMesh;
+
 	VmaAllocator _allocator;
 
 	DeletionQueue _mainDeletionQueue;
