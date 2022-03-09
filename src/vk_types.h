@@ -12,4 +12,9 @@ struct AllocatedBuffer {
 	VmaAllocation _allocation;
 };
 
+struct AllocatedImage {
+	VkImage _image;
+	VmaAllocation _allocation;
+};
+
 //we will add our main reusable types here

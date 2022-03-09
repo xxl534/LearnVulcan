@@ -70,6 +70,11 @@ public:
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
+	VkImageView _depthImageView;
+	AllocatedImage _depthImage;
+
+	VkFormat _depthFormat;
+
 	VkPipeline _trianglePipeline;
 	VkPipeline _redTrianglePipeline;
 	VkPipelineLayout _trianglePipelineLayout;
