@@ -111,6 +111,9 @@ void VulkanEngine::draw()
 	VkClearValue clearValue;
 	float flash = abs(sin(_frameNumber / 120.f));
 	clearValue.color = { {0.0f, 0.0f, flash, 1.0f} };
+	VkClearValue depthClear;
+	depthClear.depthStencil.depth = 1.f;
+	VkClearValue clearValues[] = { clearValue, depthClear };
 
 	VkRenderPassBeginInfo rpInfo = {};
 	rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -121,8 +124,8 @@ void VulkanEngine::draw()
 	rpInfo.renderArea.offset.y = 0;
 	rpInfo.renderArea.extent = _windowExtent;
 	rpInfo.framebuffer = _framebuffers[swapchainImageIndex];
-	rpInfo.clearValueCount = 1;
-	rpInfo.pClearValues = &clearValue;
+	rpInfo.clearValueCount = 2;
+	rpInfo.pClearValues = clearValues;
 
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -437,6 +440,10 @@ void VulkanEngine::init_default_renderpass()
 	depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 	depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
+	VkSubpassDependency dependencies[2] = { colorDependency, depthDependency };
+	renderPassInfo.dependencyCount = 2;
+	renderPassInfo.pDependencies = &dependencies[0];
+
 
 	VK_CHECK(vkCreateRenderPass(_device, &renderPassInfo, nullptr, &_renderPass));
 
@@ -452,7 +459,7 @@ void VulkanEngine::init_framebuffers()
 	fbInfo.pNext = nullptr;
 
 	fbInfo.renderPass = _renderPass;
-	fbInfo.attachmentCount = 1;
+	fbInfo.attachmentCount = 2;
 	fbInfo.width = _windowExtent.width;
 	fbInfo.height = _windowExtent.height;
 	fbInfo.layers = 1;
@@ -462,7 +469,11 @@ void VulkanEngine::init_framebuffers()
 
 	for (int i = 0; i < swapchainImageCount; ++i)
 	{
-		fbInfo.pAttachments = &_swapchainImageViews[i];
+		VkImageView attachments[2];
+		attachments[0] = _swapchainImageViews[i];
+		attachments[1] = _depthImageView;
+		fbInfo.pAttachments = attachments;
+
 		VK_CHECK(vkCreateFramebuffer(_device, &fbInfo, nullptr, &_framebuffers[i]));
 	}
 
@@ -559,6 +570,8 @@ VkPipeline VulkanEngine::build_pipeline(const char* vertexShader, const char* fr
 	pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
 
 	pipelineBuilder._pipelineLayout = _trianglePipelineLayout;
+
+	pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
 	VkPipeline pipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 
