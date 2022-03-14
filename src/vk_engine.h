@@ -7,6 +7,7 @@
 #include <vector>
 #include <deque>
 #include <functional>
+#include <unordered_map>
 
 #include "vk_mem_alloc.h"
 #include "vk_mesh.h"
@@ -22,6 +23,17 @@ enum ShaderType {
 	ShaderType_Fragment,
 	ShaderType_Vertex,
 	ShaderType_Compute,
+};
+
+struct Material {
+	VkPipeline pipeline;
+	VkPipelineLayout pipelineLayout;
+};
+
+struct RenderObject{
+	Mesh* mesh;
+	Material* material;
+	glm::mat4 transformMatrix;
 };
 
 struct DeletionQueue
@@ -75,14 +87,11 @@ public:
 
 	VkFormat _depthFormat;
 
-	VkPipeline _trianglePipeline;
-	VkPipeline _redTrianglePipeline;
-	VkPipelineLayout _trianglePipelineLayout;
+	VkPipeline meshPipeline;
 
-	VkPipeline _meshPipeline;
-	Mesh _triangleMesh;
-
-	Mesh _monkeyMesh;
+	std::vector<RenderObject> _renderables;
+	std::unordered_map<std::string, Material> _materials;
+	std::unordered_map<std::string, Mesh> _meshes;
 
 	VmaAllocator _allocator;
 
@@ -112,6 +121,14 @@ public:
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 
 	bool load_shader_module_with_log(const char* filePath, VkShaderModule* outShaderModule, ShaderType shaderType);
+
+	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+
+	Material* get_material(const std::string& name);
+
+	Mesh* get_mesh(const std::string& name);
+
+	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 private:
 	void init_vulkan();
 
@@ -127,7 +144,9 @@ private:
 
 	void init_pipelines();
 
-	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader, VertexInputDescription* pInputDesc);
+	void init_scene();
+
+	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader, VkPipelineLayout layout, VertexInputDescription* pInputDesc);
 
 	void load_meshes();
 
