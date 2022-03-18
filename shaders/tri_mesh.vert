@@ -11,8 +11,15 @@ layout(push_constant) uniform constants
 	vec4 data;
 	mat4 render_matrix;
 } PushConstants;
+
+layout(set = 0, binding = 0) uniform CameraBuffer{
+	mat4 view;
+	mat4 proj;
+	mat4 viewproj;
+} cameraData;
 void main()
 {
-	gl_Position = PushConstants.render_matrix*vec4(vPosition, 1.0f);
+	mat4 transformMatrix = (cameraData.viewproj * PushConstants.render_matrix);
+	gl_Position = transformMatrix*vec4(vPosition, 1.0f);
 	outColor = vColor;
 }

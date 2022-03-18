@@ -115,15 +115,15 @@ VkPipelineColorBlendAttachmentState vkinit::color_blend_attachment_state()
 	return colorBlendAttachment;
 }
 
-VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info(const std::vector<VkPushConstantRange>& constantRanges)
+VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info(const std::vector<VkPushConstantRange>& constantRanges, const std::vector<VkDescriptorSetLayout>& layouts)
 {
 	VkPipelineLayoutCreateInfo info{};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	info.pNext = nullptr;
 
 	info.flags = 0;
-	info.setLayoutCount = 0;
-	info.pSetLayouts = nullptr;
+	info.setLayoutCount = layouts.size();
+	info.pSetLayouts = layouts.data();
 	info.pushConstantRangeCount = constantRanges.size();
 	info.pPushConstantRanges = constantRanges.data();
 
