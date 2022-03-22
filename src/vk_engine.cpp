@@ -286,6 +286,17 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 	glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.f);
 	projection[1][1] *= -1;
 
+	GPUCameraData camData;
+	camData.proj = projection;
+	camData.view = view;
+	camData.viewproj = projection * view;
+
+	void* data;
+	vmaMapMemory(_allocator, get_current_frame().cameraBuffer._allocation, &data);
+	memcpy(data, &camData, sizeof(GPUCameraData));
+	vmaUnmapMemory(_allocator, get_current_frame().cameraBuffer._allocation);
+
+
 	Mesh* lastMesh = nullptr;
 	Material* lastMaterial = nullptr;
 	for (int i = 0; i < count; ++i)
@@ -296,10 +307,11 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 		{
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipeline);
 			lastMaterial = obj.material;
+
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 0, nullptr);
 		}
 
-		glm::mat4 model = obj.transformMatrix;
-		glm::mat4 mesh_matrix = projection * view * model;
+		glm::mat4 mesh_matrix = obj.transformMatrix;
 
 		PipelineConstants constants;
 		constants.render_matrix = mesh_matrix;
@@ -625,6 +637,31 @@ void VulkanEngine::init_descriptors()
 	{
 		_frames[i].cameraBuffer = create_buffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 		
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.pNext = nullptr;
+
+		allocInfo.descriptorPool = _descriptorPool;
+		allocInfo.descriptorSetCount = 1;
+		allocInfo.pSetLayouts = &_globalSetLayout;
+
+		vkAllocateDescriptorSets(_device, &allocInfo, &_frames[i].globalDescriptor);
+
+		VkDescriptorBufferInfo bInfo{};
+		bInfo.buffer = _frames[i].cameraBuffer._buffer;
+		bInfo.offset = 0;
+		bInfo.range = sizeof(GPUCameraData);
+
+		VkWriteDescriptorSet setWrite = {};
+		setWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		setWrite.pNext = nullptr;
+		setWrite.dstBinding = 0;
+		setWrite.dstSet = _frames[i].globalDescriptor;
+		setWrite.descriptorCount = 1;
+		setWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		setWrite.pBufferInfo = &bInfo;
+
+		vkUpdateDescriptorSets(_device, 1, &setWrite, 0, nullptr);
 	}
 
 	for (int i = 0; i < FRAME_OVERLAP; ++i)

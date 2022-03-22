@@ -16,9 +16,9 @@
 
 struct GPUCameraData
 {
-	glm::vec4 view;
-	glm::vec4 proj;
-	glm::vec4 viewproj;
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
 };
 struct FrameData {
 	VkSemaphore _presentSemaphore, _renderSemaphore;
