@@ -392,6 +392,9 @@ void VulkanEngine::init_vulkan()
 	allocatorInfo.device = _device;
 	allocatorInfo.instance = _instance;
 	vmaCreateAllocator(&allocatorInfo, &_allocator);
+
+	_gpuProperties = vkbDevice.physical_device.properties;
+	std::cout << "The GPU has a minimum buffer alignment of " << _gpuProperties.limits.minUniformBufferOffsetAlignment << std::endl;
 }
 
 void VulkanEngine::init_swapchain()
@@ -618,19 +621,18 @@ void VulkanEngine::init_descriptors()
 	poolInfo.pPoolSizes = sizes.data();
 	vkCreateDescriptorPool(_device, &poolInfo, nullptr, &_descriptorPool);
 
-	VkDescriptorSetLayoutBinding camBufferBinding{};
-	camBufferBinding.binding = 0;
-	camBufferBinding.descriptorCount = 1;
-	camBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	camBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	VkDescriptorSetLayoutBinding camBufferBinding = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
+	VkDescriptorSetLayoutBinding sceneBinding = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+	VkDescriptorSetLayoutBinding bindings[] = { camBufferBinding, sceneBinding };
 
 	VkDescriptorSetLayoutCreateInfo setInfo{};
 	setInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	setInfo.pNext = nullptr;
 
-	setInfo.bindingCount = 1;
+	setInfo.bindingCount = 2;
 	setInfo.flags = 0;
-	setInfo.pBindings = &camBufferBinding;
+	setInfo.pBindings = bindings;
+
 	vkCreateDescriptorSetLayout(_device, &setInfo, nullptr, &_globalSetLayout);
 
 	for (int i = 0; i < FRAME_OVERLAP; ++i)
@@ -647,21 +649,20 @@ void VulkanEngine::init_descriptors()
 
 		vkAllocateDescriptorSets(_device, &allocInfo, &_frames[i].globalDescriptor);
 
-		VkDescriptorBufferInfo bInfo{};
-		bInfo.buffer = _frames[i].cameraBuffer._buffer;
-		bInfo.offset = 0;
-		bInfo.range = sizeof(GPUCameraData);
+		VkDescriptorBufferInfo cameraInfo{};
+		cameraInfo.buffer = _frames[i].cameraBuffer._buffer;
+		cameraInfo.offset = 0;
+		cameraInfo.range = sizeof(GPUCameraData);
 
-		VkWriteDescriptorSet setWrite = {};
-		setWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		setWrite.pNext = nullptr;
-		setWrite.dstBinding = 0;
-		setWrite.dstSet = _frames[i].globalDescriptor;
-		setWrite.descriptorCount = 1;
-		setWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		setWrite.pBufferInfo = &bInfo;
+		VkDescriptorBufferInfo sceneInfo{};
+		sceneInfo.buffer = _sceneParameterBuffer._buffer;
+		sceneInfo.offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * i;
+		sceneInfo.range = sizeof(GPUSceneData);
 
-		vkUpdateDescriptorSets(_device, 1, &setWrite, 0, nullptr);
+		VkWriteDescriptorSet cameraWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _frames[i].globalDescriptor, &cameraInfo, 0);
+		VkWriteDescriptorSet sceneWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _frames[i].globalDescriptor, &sceneInfo, 1);
+		VkWriteDescriptorSet setWrites[] = { cameraWrite, sceneWrite };
+		vkUpdateDescriptorSets(_device, 2, setWrites, 0, nullptr);
 	}
 
 	for (int i = 0; i < FRAME_OVERLAP; ++i)
@@ -670,6 +671,9 @@ void VulkanEngine::init_descriptors()
 			vmaDestroyBuffer(_allocator, _frames[i].cameraBuffer._buffer, _frames[i].cameraBuffer._allocation);
 			});
 	}
+
+	const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
+	_sceneParameterBuffer = create_buffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	_mainDeletionQueue.push_function([&]() {
 		vkDestroyDescriptorSetLayout(_device, _globalSetLayout, nullptr);
@@ -821,6 +825,17 @@ void VulkanEngine::upload_mesh(Mesh& mesh)
 	vmaMapMemory(_allocator, mesh._vertexBuffer._allocation, &data);
 	memcpy(data, mesh._vertices.data(), mesh._vertices.size() * sizeof(Vertex));
 	vmaUnmapMemory(_allocator, mesh._vertexBuffer._allocation);
+}
+
+size_t VulkanEngine::pad_uniform_buffer_size(size_t originalSize)
+{
+	size_t minAlignment = _gpuProperties.limits.minUniformBufferOffsetAlignment;
+	size_t alignSize = originalSize;
+	if (minAlignment > 0)
+	{
+		alignSize = (alignSize + minAlignment - 1) & ~(minAlignment - 1);
+	}
+	return alignSize;
 }
 
 void VulkanEngine::clear_vulkan()

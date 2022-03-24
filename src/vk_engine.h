@@ -14,6 +14,15 @@
 
 #include <glm/glm.hpp>
 
+struct GPUSceneData
+{
+	glm::vec4 fogColor;
+	glm::vec4 fogDistance;
+	glm::vec4 ambientColor;
+	glm::vec4 sunlightDirection;
+	glm::vec4 sunlightColor;
+};
+
 struct GPUCameraData
 {
 	glm::mat4 view;
@@ -78,6 +87,7 @@ const unsigned int FRAME_OVERLAP = 2;
 class VulkanEngine {
 public:
 
+	VkPhysicalDeviceProperties _gpuProperties;
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;
@@ -93,6 +103,8 @@ public:
 	uint32_t _graphicsQueueFamily;
 
 	FrameData _frames[FRAME_OVERLAP];
+	GPUSceneData _sceneParameters;
+	AllocatedBuffer _sceneParameterBuffer;
 
 	VkRenderPass _renderPass;
 	std::vector<VkFramebuffer> _framebuffers;
@@ -175,6 +187,8 @@ private:
 	void load_meshes();
 
 	void upload_mesh(Mesh& mesh);
+
+	size_t pad_uniform_buffer_size(size_t originalSize);
 private:
 	void clear_vulkan();
 };
