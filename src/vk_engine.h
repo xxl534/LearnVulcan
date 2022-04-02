@@ -29,6 +29,11 @@ struct GPUCameraData
 	glm::mat4 proj;
 	glm::mat4 viewproj;
 };
+
+struct GPUObjectData {
+	glm::mat4 modelMatrix;
+};
+
 struct FrameData {
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
@@ -38,6 +43,8 @@ struct FrameData {
 
 	AllocatedBuffer cameraBuffer;
 	VkDescriptorSet globalDescriptor;
+
+	AllocatedBuffer objectBuffer;
 };
 
 struct PipelineConstants {
