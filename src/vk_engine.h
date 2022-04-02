@@ -45,6 +45,7 @@ struct FrameData {
 	VkDescriptorSet globalDescriptor;
 
 	AllocatedBuffer objectBuffer;
+	VkDescriptorSet objectDescriptor;
 };
 
 struct PipelineConstants {
@@ -122,6 +123,7 @@ public:
 	VkFormat _depthFormat;
 
 	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorSetLayout _objectSetLayout;
 	VkDescriptorPool _descriptorPool;
 
 	VkPipeline meshPipeline;
