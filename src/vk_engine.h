@@ -14,6 +14,11 @@
 
 #include <glm/glm.hpp>
 
+struct UploadContext {
+	VkFence uploadFence;
+	VkCommandPool commandPool;
+	VkCommandBuffer commandBuffer;
+};
 struct GPUSceneData
 {
 	glm::vec4 fogColor;
@@ -31,6 +36,7 @@ struct GPUCameraData
 };
 
 struct GPUObjectData {
+	glm::vec4 color;
 	glm::mat4 modelMatrix;
 };
 
@@ -68,6 +74,12 @@ struct RenderObject{
 	Mesh* mesh;
 	Material* material;
 	glm::mat4 transformMatrix;
+};
+
+
+struct Texture {
+	AllocatedImage image;
+	VkImageView imageView;
 };
 
 struct DeletionQueue
@@ -132,6 +144,10 @@ public:
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
 
+	UploadContext	_uploadContext;
+
+	std::unordered_map<std::string, Texture> _loadedTextures;
+
 	VmaAllocator _allocator;
 
 	DeletionQueue _mainDeletionQueue;
@@ -172,6 +188,8 @@ public:
 	FrameData& get_current_frame();
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 private:
 	void init_vulkan();
 
@@ -194,6 +212,8 @@ private:
 	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader, VkPipelineLayout layout, VertexInputDescription* pInputDesc);
 
 	void load_meshes();
+
+	void load_images();
 
 	void upload_mesh(Mesh& mesh);
 

@@ -3,8 +3,10 @@
 layout(location = 0) in vec3 vPosition;
 layout(location = 1) in vec3 vNormal;
 layout(location = 2) in vec3 vColor;
+layout(location = 3) in vec2 vTexCoord;
 
 layout(location = 0) out vec3 outColor;
+layout(location = 1) out vec2 texCoord;
 
 layout(push_constant) uniform constants
 {
@@ -19,6 +21,7 @@ layout(set = 0, binding = 0) uniform CameraBuffer{
 } cameraData;
 
 struct ObjectData{
+	vec4 color;
 	mat4 model;
 };
 
@@ -28,8 +31,13 @@ layout(std140, set = 1, binding = 0) readonly buffer ObjectBuffer{
 
 void main()
 {
-	mat4 modelMatrix = objectBuffer.objects[gl_BaseInstance].model;
+	ObjectData objData = objectBuffer.objects[gl_BaseInstance];
+	
+	mat4 modelMatrix = objData.model;
+	
+	//mat4 modelMatrix = objectBuffer.objects[1].model;
 	mat4 transformMatrix = (cameraData.viewproj * modelMatrix);
 	gl_Position = transformMatrix*vec4(vPosition, 1.0f);
-	outColor = vColor;
+	outColor = objData.color.rgb;
+	texCoord = vTexCoord;
 }

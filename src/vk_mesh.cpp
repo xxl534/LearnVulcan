@@ -32,9 +32,16 @@ VertexInputDescription Vertex::get_vertex_description()
 	colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
 	colorAttribute.offset = offsetof(Vertex, color);
 
+	VkVertexInputAttributeDescription uvAttribute{};
+	uvAttribute.binding = 0;
+	uvAttribute.location = 3;
+	uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
+	uvAttribute.offset = offsetof(Vertex, uv);
+
 	description.attributes.push_back(positionAttribute);
 	description.attributes.push_back(normalAttribute);
 	description.attributes.push_back(colorAttribute);
+	description.attributes.push_back(uvAttribute);
 
 	return description;
 }
@@ -79,6 +86,9 @@ bool Mesh::load_from_obj(const char* filename)
 				tinyobj::real_t ny = attrib.normals[3 * idx.normal_index + 1];
 				tinyobj::real_t nz = attrib.normals[3 * idx.normal_index + 2];
 
+				tinyobj::real_t uv_u = attrib.texcoords[2 * idx.texcoord_index + 0];
+				tinyobj::real_t uv_v = attrib.texcoords[2 * idx.texcoord_index + 1];
+
 				Vertex new_vert;
 				new_vert.position.x = vx;
 				new_vert.position.y = vy;
@@ -87,6 +97,9 @@ bool Mesh::load_from_obj(const char* filename)
 				new_vert.normal.x = nx;
 				new_vert.normal.y = ny;
 				new_vert.normal.z = nz;
+
+				new_vert.uv.x = uv_u;
+				new_vert.uv.y = 1 - uv_v;
 
 				new_vert.color = new_vert.normal;
 
