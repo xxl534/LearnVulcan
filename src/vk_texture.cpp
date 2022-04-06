@@ -61,7 +61,7 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 		imageBarrierToTransfer.srcAccessMask = 0;
 		imageBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 0, &imageBarrierToTransfer);
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrierToTransfer);
 
 		VkBufferImageCopy copyRegion{};
 		copyRegion.bufferOffset = 0;

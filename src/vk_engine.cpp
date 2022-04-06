@@ -650,6 +650,7 @@ void VulkanEngine::init_sync_structures()
 
 	VkFenceCreateInfo uploadFenceCreateInfo = vkinit::fence_create_info();
 	VK_CHECK(vkCreateFence(_device, &uploadFenceCreateInfo, nullptr, &_uploadContext.uploadFence));
+	vkResetFences(_device, 1, &_uploadContext.uploadFence);
 	_mainDeletionQueue.push_function([=] {
 		vkDestroyFence(_device, _uploadContext.uploadFence, nullptr);
 		});
