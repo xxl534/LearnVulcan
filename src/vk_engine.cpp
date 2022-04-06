@@ -335,7 +335,7 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 			uint32_t uniformOffset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 1, &uniformOffset);
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 1, 1, &get_current_frame().objectDescriptor, 0, nullptr);
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 2, 0, &obj.material->textureSet, 0, nullptr);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 2, 1, &obj.material->textureSet, 0, nullptr);
 		}
 
 		int k = 0;
@@ -972,6 +972,7 @@ void VulkanEngine::load_images()
 	Texture tex;
 	vkutil::load_image_from_file(*this, "../../assets/lost_empire-RGBA.png", tex.image);
 	VkImageViewCreateInfo imageCreateInfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, tex.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
+	vkCreateImageView(_device, &imageCreateInfo, nullptr, &tex.imageView);
 
 	_loadedTextures["empire_diffuse"] = tex;
 }
