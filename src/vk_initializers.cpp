@@ -249,3 +249,34 @@ VkSubmitInfo vkinit::submit_info(VkCommandBuffer* cmd)
 
 	return info;
 }
+
+VkSamplerCreateInfo vkinit::sampler_create_info(VkFilter filter, VkSamplerAddressMode addressMode)
+{
+	VkSamplerCreateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	info.pNext = nullptr;
+
+	info.magFilter = filter;
+	info.minFilter = filter;
+	info.addressModeU = addressMode;
+	info.addressModeV = addressMode;
+	info.addressModeW = addressMode;
+
+	return info;
+}
+
+VkWriteDescriptorSet vkinit::write_descriptor_image(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorImageInfo* imageInfo, uint32_t binding)
+{
+	VkWriteDescriptorSet info{};
+
+	info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	info.pNext = nullptr;
+
+	info.dstBinding = binding;
+	info.dstSet = dstSet;
+	info.descriptorCount = 1;
+	info.descriptorType = type;
+	info.pImageInfo = imageInfo;
+
+	return info;
+}

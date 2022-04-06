@@ -335,6 +335,7 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 			uint32_t uniformOffset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 1, &uniformOffset);
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 1, 1, &get_current_frame().objectDescriptor, 0, nullptr);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 2, 0, &obj.material->textureSet, 0, nullptr);
 		}
 
 		int k = 0;
@@ -662,7 +663,8 @@ void VulkanEngine::init_descriptors()
 	std::vector<VkDescriptorPoolSize> sizes = {
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10},
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10}
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10},
 	};
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -699,7 +701,17 @@ void VulkanEngine::init_descriptors()
 
 		vkCreateDescriptorSetLayout(_device, &set2Info, nullptr, &_objectSetLayout);
 	}
+	{
+		VkDescriptorSetLayoutBinding textureBinding = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+		VkDescriptorSetLayoutCreateInfo layoutCreateInfo{};
+		layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutCreateInfo.pNext = nullptr;
 
+		layoutCreateInfo.bindingCount = 1;
+		layoutCreateInfo.flags = 0;
+		layoutCreateInfo.pBindings = &textureBinding;
+		vkCreateDescriptorSetLayout(_device, &layoutCreateInfo, nullptr, &_singleTextureSetLayout);
+	}
 	
 
 	const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
@@ -789,6 +801,7 @@ void VulkanEngine::init_pipelines()
 	std::vector<VkDescriptorSetLayout> setLayouts{};
 	setLayouts.push_back(_globalSetLayout);
 	setLayouts.push_back(_objectSetLayout);
+	setLayouts.push_back(_singleTextureSetLayout);
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info(constantRanges, setLayouts);
 
 	VkPipelineLayout defaultPipelineLayout;
@@ -809,7 +822,7 @@ void VulkanEngine::init_pipelines()
 
 void VulkanEngine::init_scene()
 {
-	float height = 5.f;
+	/*float height = 5.f;
 	RenderObject monkey;
 	monkey.mesh = get_mesh("monkey");
 	monkey.material = get_material("defaultmesh");
@@ -829,7 +842,7 @@ void VulkanEngine::init_scene()
 			tri.transformMatrix = translation * scale;
 			_renderables.push_back(tri);
 		}
-	}
+	}*/
 
 	RenderObject map;
 	map.mesh = get_mesh("empire");
@@ -837,6 +850,26 @@ void VulkanEngine::init_scene()
 	map.transformMatrix = glm::translate(glm::vec3(5, -10, 0));
 
 	_renderables.push_back(map);
+
+	VkSamplerCreateInfo samplerInfo = vkinit::sampler_create_info(VK_FILTER_LINEAR);
+	VkSampler blockySampler;
+	vkCreateSampler(_device, &samplerInfo, nullptr, &blockySampler);
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = _descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &_singleTextureSetLayout;
+	
+	vkAllocateDescriptorSets(_device, &allocInfo, &map.material->textureSet);
+
+	VkDescriptorImageInfo imageBufferInfo;
+	imageBufferInfo.sampler = blockySampler;
+	imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
+	imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, map.material->textureSet, &imageBufferInfo, 0);
+	vkUpdateDescriptorSets(_device, 1, &texture1, 0, nullptr);
 }
 
 VkPipeline VulkanEngine::build_pipeline(const char* vertexShader, const char* fragmentShader, VkPipelineLayout layout,  VertexInputDescription* pInputDesc)
