@@ -211,6 +211,8 @@ private:
 
 	void init_scene();
 
+	void init_imgui();
+
 	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader, VkPipelineLayout layout, VertexInputDescription* pInputDesc);
 
 	void load_meshes();

@@ -10,6 +10,10 @@
 #include <iostream>
 #include <fstream>
 
+#include "imgui.h"
+#include "imgui_impl_sdl.h"
+#include "imgui_impl_vulkan.h"
+
 //bootstrap library
 #include "VkBootstrap.h"
 #include "vk_pipeline_builder.h"
@@ -79,6 +83,8 @@ void VulkanEngine::init()
 
 	init_scene();
 
+	init_imgui();
+
 	//everything went fine
 	_isInitialized = true;
 }
@@ -101,6 +107,7 @@ void VulkanEngine::cleanup()
 
 void VulkanEngine::draw()
 {
+	ImGui::Render();
 	FrameData& currentFrame = get_current_frame();
 	VK_CHECK(vkWaitForFences(_device, 1, &currentFrame._renderFence, true, TIMEOUT_1SEC));
 	VK_CHECK(vkResetFences(_device, 1, &currentFrame._renderFence));
@@ -144,6 +151,7 @@ void VulkanEngine::draw()
 
 	draw_objects(cmd, _renderables.data(), _renderables.size());
 
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 	vkCmdEndRenderPass(cmd);
 	VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -188,6 +196,7 @@ void VulkanEngine::run()
 		//Handle events on queue
 		while (SDL_PollEvent(&e) != 0)
 		{
+			ImGui_ImplSDL2_ProcessEvent(&e);
 			//close the window when user alt-f4s or clicks the X button			
 			if (e.type == SDL_QUIT)
 			{
@@ -205,6 +214,12 @@ void VulkanEngine::run()
 				}
 			}
 		}
+
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplSDL2_NewFrame(_window);
+
+		ImGui::NewFrame();
+		ImGui::ShowDemoWindow();
 
 		draw();
 	}
@@ -870,6 +885,61 @@ void VulkanEngine::init_scene()
 
 	VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, map.material->textureSet, &imageBufferInfo, 0);
 	vkUpdateDescriptorSets(_device, 1, &texture1, 0, nullptr);
+}
+
+void VulkanEngine::init_imgui()
+{
+	VkDescriptorPoolSize poolSize[] =
+	{
+		{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000},
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.pNext = nullptr;
+	poolInfo.maxSets = 1000;
+	poolInfo.poolSizeCount = std::size(poolSize);
+	poolInfo.pPoolSizes = poolSize;
+
+	VkDescriptorPool imguiPool;
+	VK_CHECK(vkCreateDescriptorPool(_device, &poolInfo, nullptr, &imguiPool));
+
+	ImGui::CreateContext();
+
+	ImGui_ImplSDL2_InitForVulkan(_window);
+
+	ImGui_ImplVulkan_InitInfo initInfo{};
+	initInfo.Instance = _instance;
+	initInfo.PhysicalDevice = _chosenGPU;
+	initInfo.Device = _device;
+	initInfo.Queue = _graphicsQueue;
+	initInfo.DescriptorPool = imguiPool;
+	initInfo.MinImageCount = 3;
+	initInfo.ImageCount = 3;
+	initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+	ImGui_ImplVulkan_Init(&initInfo, _renderPass);
+
+	immediate_submit([&](VkCommandBuffer cmd) {
+		ImGui_ImplVulkan_CreateFontsTexture(cmd);
+		});
+	
+	ImGui_ImplVulkan_DestroyFontUploadObjects();
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyDescriptorPool(_device, imguiPool, nullptr);
+		ImGui_ImplVulkan_Shutdown();
+		});
 }
 
 VkPipeline VulkanEngine::build_pipeline(const char* vertexShader, const char* fragmentShader, VkPipelineLayout layout,  VertexInputDescription* pInputDesc)

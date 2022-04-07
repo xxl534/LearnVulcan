@@ -43,7 +43,7 @@ target_link_libraries(sdl2 INTERFACE SDL2 SDL2main)
 
 add_library(imgui STATIC)
 
-target_include_directories(imgui PUBLIC imgui)
+target_include_directories(imgui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
 
 target_sources(imgui PRIVATE 
     imgui/imgui.h
@@ -52,6 +52,7 @@ target_sources(imgui PRIVATE
     imgui/imgui_demo.cpp
     imgui/imgui_draw.cpp
     imgui/imgui_widgets.cpp
+    imgui/imgui_tables.cpp
 
     imgui/imgui_impl_vulkan.cpp
     imgui/imgui_impl_sdl.cpp
