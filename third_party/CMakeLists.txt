@@ -8,6 +8,7 @@ add_library(stb_image INTERFACE)
 add_library(json INTERFACE)
 
 add_library(tinyobjloader STATIC)
+add_library(spirv_reflect STATIC)
 
 add_library(lz4 STATIC)
 
@@ -29,6 +30,14 @@ target_sources(lz4 PRIVATE
 )
 
 target_include_directories(lz4 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/lz4" )
+
+target_sources(spirv_reflect PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/spirv_reflect/spirv_reflect.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/spirv_reflect/spirv_reflect.c"
+)
+
+target_include_directories(spirv_reflect PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/spirv_reflect" )
+target_include_directories(spirv_reflect PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/spirv_reflect/include" )
 
 target_sources(tinyobjloader PRIVATE 
     tinyobjloader/tiny_obj_loader.h

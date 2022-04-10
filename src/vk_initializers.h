@@ -26,6 +26,7 @@ namespace vkinit {
 	VkPipelineColorBlendAttachmentState color_blend_attachment_state();
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info(const std::vector<VkPushConstantRange>& constantRanges, const std::vector<VkDescriptorSetLayout>& layouts);
+	VkPipelineLayoutCreateInfo pipeline_layout_create_info(const VkPushConstantRange* constantRanges, uint32_t constantCount, const VkDescriptorSetLayout* layouts, uint32_t layoutCount);
 
 	VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 

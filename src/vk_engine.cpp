@@ -14,6 +14,8 @@
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_vulkan.h"
 
+#include <cvar.h>
+
 //bootstrap library
 #include "VkBootstrap.h"
 #include "vk_pipeline_builder.h"
@@ -219,7 +221,51 @@ void VulkanEngine::run()
 		ImGui_ImplSDL2_NewFrame(_window);
 
 		ImGui::NewFrame();
-		ImGui::ShowDemoWindow();
+
+		if (ImGui::BeginMainMenuBar())
+		{
+
+			if (ImGui::BeginMenu("Debug"))
+			{
+				if (ImGui::BeginMenu("CVAR"))
+				{
+					CVarSystem::Get()->DrawImguiEditor();
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMainMenuBar();
+		}
+
+
+		//ImGui::Begin("engine");
+
+		//ImGui::Text("Frametimes: %f", stats.frametime);
+		//ImGui::Text("Objects: %d", stats.objects);
+		////ImGui::Text("Drawcalls: %d", stats.drawcalls);
+		//ImGui::Text("Batches: %d", stats.draws);
+		////ImGui::Text("Triangles: %d", stats.triangles);		
+
+		//CVAR_OutputIndirectToFile.Set(false);
+		//if (ImGui::Button("Output Indirect"))
+		//{
+		//	CVAR_OutputIndirectToFile.Set(true);
+		//}
+
+
+		//ImGui::Separator();
+
+		//for (auto& [k, v] : _profiler->timing)
+		//{
+		//	ImGui::Text("TIME %s %f ms", k.c_str(), v);
+		//}
+		//for (auto& [k, v] : _profiler->stats)
+		//{
+		//	ImGui::Text("STAT %s %d", k.c_str(), v);
+		//}
+
+
+		//ImGui::End();
 
 		draw();
 	}

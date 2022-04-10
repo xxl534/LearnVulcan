@@ -17,4 +17,11 @@ struct AllocatedImage {
 	VmaAllocation _allocation;
 };
 
+enum class MeshpassType : uint8_t {
+	None = 0,
+	Forward = 1,
+	Transparency = 2,
+	DirectionalShadow = 3
+};
+
 //we will add our main reusable types here
