@@ -81,6 +81,8 @@ private:
 	};
 
 	std::array<DynamicOffsets, 4> m_SetOffsets;
+
+	ShaderEffect* m_ShaderEffect{ nullptr };
 	std::vector<BufferWriteDescriptor> m_BufferWrites;
 };
 

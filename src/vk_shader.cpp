@@ -223,35 +223,164 @@ void ShaderEffect::ReflectLayout(VkDevice device, ReflectionOverrides* overrides
 
 void ShaderEffect::FillStages(std::vector<VkPipelineShaderStageCreateInfo>& pipelineStages)
 {
-
+	pipelineStages.clear();
+	for (auto& stage : stages)
+	{
+		pipelineStages.push_back(vkinit::pipeline_shader_stage_create_info(stage.stage, stage.shaderModule->module));
+	}
 }
 
 void ShaderDescritptorBinder::BindBuffer(const char* name, const VkDescriptorBufferInfo& bufferInfo)
 {
-
+	BindDynamicBuffer(name, -1, bufferInfo);
 }
 
 void ShaderDescritptorBinder::BindDynamicBuffer(const char* name, uint32_t offset, const VkDescriptorBufferInfo& bufferInfo)
 {
+	auto found = m_ShaderEffect->bindings.find(name);
+	if (found != m_ShaderEffect->bindings.end())
+	{
+		const ShaderEffect::ReflectedBinding& bind = (*found).second;
 
+		for (auto& write : m_BufferWrites)
+		{
+			if (write.dstBinding == bind.binding && write.dstSet == bind.set)
+			{
+				if (write.bufferInfo.buffer != bufferInfo.buffer ||
+					write.bufferInfo.range != bufferInfo.range ||
+					write.bufferInfo.offset != bufferInfo.offset)
+				{
+					write.bufferInfo = bufferInfo;
+					write.dynamicOffset = offset;
+
+					cachedDescriptorSets[write.dstSet] = VK_NULL_HANDLE;
+				}
+				else
+				{
+					write.dynamicOffset = offset;
+				}
+				return;
+			}
+		}
+
+		BufferWriteDescriptor newWrite;
+		newWrite.dstSet = bind.set;
+		newWrite.dstBinding = bind.binding;
+		newWrite.descriptorType = bind.type;
+		newWrite.bufferInfo = bufferInfo;
+		newWrite.dynamicOffset = offset;
+
+		cachedDescriptorSets[bind.set] = VK_NULL_HANDLE;
+
+		m_BufferWrites.push_back(newWrite);
+	}
 }
 
 void ShaderDescritptorBinder::ApplyBinds(VkCommandBuffer cmd)
 {
-
+	for (int i = 0; i < 2; ++i)
+		//3,4 for frame and camera
+	{
+		if (cachedDescriptorSets[i] != VK_NULL_HANDLE)
+		{
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShaderEffect->builtLayout, i, 1, &cachedDescriptorSets[i], m_SetOffsets[i].count, m_SetOffsets[i].offsets.data());
+		}
+	}
 }
 
 void ShaderDescritptorBinder::BuildSets(VkDevice device, vkutil::DescriptorAllocator& allocator)
 {
+	std::array<std::vector<VkWriteDescriptorSet>, 4> writes{};
 
+	std::sort(m_BufferWrites.begin(), m_BufferWrites.end(), [](BufferWriteDescriptor& a, BufferWriteDescriptor& b) {
+		if (b.dstSet != a.dstSet)
+			return a.dstSet < b.dstSet;
+		else
+			return a.dstBinding < b.dstBinding;
+		});
+
+	for (auto& s : m_SetOffsets)
+	{
+		s.count = 0;
+	}
+
+	for (BufferWriteDescriptor& w : m_BufferWrites)
+	{
+		uint32_t set = w.dstSet;
+		VkWriteDescriptorSet write = vkinit::write_descriptor_buffer(w.descriptorType, VK_NULL_HANDLE, &w.bufferInfo, w.dstBinding);
+
+		writes[set].push_back(write);
+
+		//dynamic offsets
+		if (w.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC || w.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC)
+		{
+			DynamicOffsets& offsetSet = m_SetOffsets[set];
+			offsetSet.offsets[offsetSet.count] = w.dynamicOffset;
+			++offsetSet.count;
+		}
+	}
+
+
+	for (int i = 0; i < 4; ++i)
+	{
+		if (writes[i].size() > 0)
+		{
+			if (cachedDescriptorSets[i] == VK_NULL_HANDLE)
+			{
+				auto layout = m_ShaderEffect->setLayouts[i];
+
+				VkDescriptorSet newDescriptor;
+				allocator.allocate(&newDescriptor, layout);
+
+				for (auto& w : writes[i])
+				{
+					w.dstSet = newDescriptor;
+				}
+				vkUpdateDescriptorSets(device, (uint32_t)writes[i].size(), writes[i].data(), 0, nullptr);
+
+				cachedDescriptorSets[i] = newDescriptor;
+			}
+		}
+	}
 }
 
 void ShaderDescritptorBinder::SetShader(ShaderEffect* newShader)
 {
-
+	if (m_ShaderEffect && m_ShaderEffect != newShader)
+	{
+		for (int i = 0; i < 4; ++i)
+		{
+			if (newShader->setHashes[i] != m_ShaderEffect->setHashes[i] 
+				|| newShader->setHashes[i] == 0)
+			{
+				cachedDescriptorSets[i] = VK_NULL_HANDLE;
+			}
+		}
+	}
+	else
+	{
+		for (int i = 0; i < 4; ++i)
+		{
+			cachedDescriptorSets[i] = VK_NULL_HANDLE;
+		}
+	}
+	m_ShaderEffect = newShader;
 }
 
 ShaderModule* ShaderCache::GetShader(const std::string& path)
 {
+	auto it = m_Cache.find(path);
+	if (it == m_Cache.end())
+	{
+		ShaderModule newShader;
+		bool result = vkutil::LoadShaderModule(m_Device, path.c_str(), &newShader);
+		if (!result)
+		{
+			std::cout << "Error when compiling shader " << path << std::endl;
+			return nullptr;
+		}
 
+		m_Cache[path] = newShader;
+	}
+	return &m_Cache[path];
 }
