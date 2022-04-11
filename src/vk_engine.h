@@ -9,8 +9,9 @@
 #include <functional>
 #include <unordered_map>
 
-#include "vk_mem_alloc.h"
-#include "vk_mesh.h"
+#include <vk_mem_alloc.h>
+#include <vk_mesh.h>
+#include <vk_shader.h>
 
 #include <glm/glm.hpp>
 
@@ -192,6 +193,12 @@ public:
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
+	ShaderModule* GetShaderModule(const std::string& path);
+
+	inline VkDevice GetDevice() const;
+public:
+	static std::string ShaderPath(std::string_view path);
 private:
 	void init_vulkan();
 
@@ -224,4 +231,11 @@ private:
 	size_t pad_uniform_buffer_size(size_t originalSize);
 private:
 	void clear_vulkan();
+
+	ShaderCache m_ShaderCache;
 };
+
+inline VkDevice VulkanEngine::GetDevice() const
+{
+	return _device;
+}

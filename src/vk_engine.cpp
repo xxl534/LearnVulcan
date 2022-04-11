@@ -65,6 +65,8 @@ void VulkanEngine::init()
 	
 	init_vulkan();
 
+	m_ShaderCache.Init(_device);
+
 	init_swapchain();
 
 	init_commands();
@@ -1053,6 +1055,17 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 	vkResetFences(_device, 1, &_uploadContext.uploadFence);
 
 	vkResetCommandPool(_device, _uploadContext.commandPool, 0);
+}
+
+ShaderModule* VulkanEngine::GetShaderModule(const std::string& path)
+{
+	return m_ShaderCache.GetShader(path);
+}
+
+
+std::string VulkanEngine::ShaderPath(std::string_view path)
+{
+	return "../../shaders/" + std::string(path);
 }
 
 void VulkanEngine::load_meshes()

@@ -130,6 +130,7 @@ namespace vkutil
 		void Init(VulkanEngine* owner);
 		void Cleanup();
 		void BuildDefaultTemplates();
+		ShaderEffect* BuildEffect(std::string_view vertexShader, std::string_view fragmentShader);
 		ShaderPass* BuildShader(VkRenderPass renderPass, PipelineBuilder& builder, ShaderEffect* effect);
 		Material* BuildMaterial(const std::string& materialName, const MaterialData& info);
 		Material* GetMaterial(const std::string& materialName);

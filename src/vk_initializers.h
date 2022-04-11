@@ -15,7 +15,7 @@ namespace vkinit {
 
 	VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shaderModule);
 
-	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info(VertexInputDescription* pInputDesc);
+	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info(VertexInputDescription* pInputDesc = nullptr);
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info(VkPrimitiveTopology topology);
 
