@@ -10,7 +10,7 @@ void vkutil::MaterialSystem::Init(VulkanEngine* owner)
 
 void vkutil::MaterialSystem::Cleanup()
 {
-	for (auto it : m_Materials)
+	for (auto it : m_MaterialCache)
 	{
 		delete it.second;
 	}
@@ -73,7 +73,7 @@ void vkutil::MaterialSystem::BuildDefaultTemplates()
 		transparentForward.depthStencil.depthWriteEnable = false;
 		transparentForward.rasterizer.cullMode = VK_CULL_MODE_NONE;
 
-		ShaderPass* transparentLitPass = BuildShader(m_Engine->_renderPass, transparentForward, texturedLit);
+		ShaderPass* transparentLitPass = BuildShader(m_Engine->renderPass(PassType::Forward), transparentForward, texturedLit);
 
 		EffectTemplate defaultTextured;
 		defaultTextured.passShaders[MeshpassType::Transparency] = transparentLitPass;

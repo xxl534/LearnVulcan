@@ -71,7 +71,9 @@ void VulkanEngine::init()
 
 	init_commands();
 
-	init_default_renderpass();
+	InitForwardRenderpass();
+	InitCopyRenderpass();
+	InitShadowRenderpass();
 
 	init_framebuffers();
 
@@ -102,6 +104,7 @@ void VulkanEngine::cleanup()
 		
 		_mainDeletionQueue.flush();
 
+		m_MaterialSystem->Cleanup();
 		//descriptor
 		m_DescriptorAllocator->cleanup();
 		delete m_DescriptorAllocator;
@@ -151,7 +154,7 @@ void VulkanEngine::draw()
 	rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	rpInfo.pNext = nullptr;
 
-	rpInfo.renderPass = _renderPass;
+	rpInfo.renderPass = renderPass(PassType::Forward);
 	rpInfo.renderArea.offset.x = 0;
 	rpInfo.renderArea.offset.y = 0;
 	rpInfo.renderArea.extent = _windowExtent;
@@ -583,7 +586,7 @@ void VulkanEngine::init_commands()
 	VK_CHECK(vkAllocateCommandBuffers(m_Device, &cmdAllocInfo, &_uploadContext.commandBuffer));
 }
 
-void VulkanEngine::init_default_renderpass()
+void VulkanEngine::InitForwardRenderpass()
 {
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = _swapchainImageFormat;
@@ -652,10 +655,109 @@ void VulkanEngine::init_default_renderpass()
 	renderPassInfo.pDependencies = &dependencies[0];
 
 
-	VK_CHECK(vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &_renderPass));
+	VK_CHECK(vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_Passes[PassType::Forward]));
 
 	_mainDeletionQueue.push_function([=]() {
-		vkDestroyRenderPass(m_Device, _renderPass, nullptr);
+		vkDestroyRenderPass(m_Device, renderPass(PassType::Forward), nullptr);
+		});
+}
+
+void VulkanEngine::InitCopyRenderpass()
+{
+	VkAttachmentDescription colorAttachment = {};
+	colorAttachment.format = _swapchainImageFormat;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentRef = {};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorAttachmentRef;
+
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.pNext = nullptr;
+
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+
+	/*VkSubpassDependency colorDependency{};
+	colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	colorDependency.dstSubpass = 0;
+	colorDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	colorDependency.srcAccessMask = 0;
+	colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;*/
+
+	/*renderPassInfo.dependencyCount = 1;
+	renderPassInfo.pDependencies = &colorDependency;*/
+
+
+	VK_CHECK(vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_Passes[PassType::Copy]));
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyRenderPass(m_Device, renderPass(PassType::Copy), nullptr);
+		});
+}
+
+void VulkanEngine::InitShadowRenderpass()
+{
+	VkAttachmentDescription depthAttachment = {};
+	depthAttachment.flags = 0;
+	depthAttachment.format = _depthFormat;
+	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depthAttachmentRef = {};
+	depthAttachmentRef.attachment = 1;
+	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.pNext = nullptr;
+
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &depthAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+
+	/*VkSubpassDependency depthDependency{};
+	depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	depthDependency.dstSubpass = 0;
+	depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	depthDependency.srcAccessMask = 0;
+	depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+	renderPassInfo.dependencyCount = 1;
+	renderPassInfo.pDependencies = &depthDependency;*/
+
+
+	VK_CHECK(vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_Passes[PassType::Shadow]));
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyRenderPass(m_Device, renderPass(PassType::Shadow), nullptr);
 		});
 }
 
@@ -665,7 +767,7 @@ void VulkanEngine::init_framebuffers()
 	fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	fbInfo.pNext = nullptr;
 
-	fbInfo.renderPass = _renderPass;
+	fbInfo.renderPass = renderPass(PassType::Forward);
 	fbInfo.attachmentCount = 2;
 	fbInfo.width = _windowExtent.width;
 	fbInfo.height = _windowExtent.height;
@@ -868,6 +970,10 @@ void VulkanEngine::init_descriptors()
 
 void VulkanEngine::init_pipelines()
 {
+	m_MaterialSystem = new vkutil::MaterialSystem();
+	m_MaterialSystem->Init(this);
+	m_MaterialSystem->BuildDefaultTemplates();
+
 	VkPushConstantRange push_constant;
 	push_constant.offset = 0;
 	push_constant.size = sizeof(PipelineConstants);
@@ -899,54 +1005,61 @@ void VulkanEngine::init_pipelines()
 
 void VulkanEngine::init_scene()
 {
-	/*float height = 5.f;
-	RenderObject monkey;
-	monkey.mesh = get_mesh("monkey");
-	monkey.material = get_material("defaultmesh");
-	monkey.transformMatrix = glm::translate(glm::mat4{ 1.0f }, glm::vec3(0, height, 0)) * glm::scale(glm::mat4{ 1.0 }, glm::vec3(2));
-
-	_renderables.push_back(monkey);
-
-	for (int x = -20; x <= 20; ++x)
-	{
-		for (int y = -20; y <= 20; ++y)
-		{
-			RenderObject tri;
-			tri.mesh = get_mesh("triangle");
-			tri.material = get_material("defaultmesh");
-			glm::mat4 translation = glm::translate(glm::mat4{ 1.0f }, glm::vec3(x, height, y));
-			glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(0.2));
-			tri.transformMatrix = translation * scale;
-			_renderables.push_back(tri);
-		}
-	}*/
-
-	RenderObject map;
-	map.mesh = get_mesh("empire");
-	map.material = get_material("texturedMesh");
-	map.transformMatrix = glm::translate(glm::vec3(5, -10, 0));
-
-	_renderables.push_back(map);
-
-	VkSamplerCreateInfo samplerInfo = vkinit::sampler_create_info(VK_FILTER_LINEAR);
+	VkSamplerCreateInfo samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 	VkSampler blockySampler;
 	vkCreateSampler(m_Device, &samplerInfo, nullptr, &blockySampler);
 
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = _descriptorPool;
-	allocInfo.descriptorSetCount = 1;
-	allocInfo.pSetLayouts = &_singleTextureSetLayout;
-	
-	vkAllocateDescriptorSets(m_Device, &allocInfo, &map.material->textureSet);
+	samplerInfo = vkinit::sampler_create_info(VK_FILTER_LINEAR);
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 2;
+	samplerInfo.maxLod = 30.f;
+	samplerInfo.minLod = 3.f;
+	VkSampler smoothSampler;
+	vkCreateSampler(m_Device, &samplerInfo, nullptr, &smoothSampler);
 
-	VkDescriptorImageInfo imageBufferInfo;
-	imageBufferInfo.sampler = blockySampler;
-	imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
-	imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	{
+		vkutil::MaterialData texturedInfo;
+		texturedInfo.baseTemplate = "texturedPBR_opaque";
+		texturedInfo.parameters = nullptr;
 
-	VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, map.material->textureSet, &imageBufferInfo, 0);
-	vkUpdateDescriptorSets(m_Device, 1, &texture1, 0, nullptr);
+		vkutil::SampledTexture whiteTex;
+		whiteTex.sampler = smoothSampler;
+		whiteTex.view = _loadedTextures["white"].imageView;
+
+		texturedInfo.textures.push_back(whiteTex);
+
+		m_MaterialSystem->BuildMaterial("textured", texturedInfo);
+		m_MaterialSystem->BuildMaterial("default", texturedInfo);
+	}
+
+	int dimHelmets = 1;
+	for (int x = -dimHelmets; x <= dimHelmets; x++) {
+		for (int y = -dimHelmets; y <= dimHelmets; y++) {
+
+			glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x * 5, 10, y * 5));
+			glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(10));
+
+			LoadPrefab(AssetPath("FlightHelmet/FlightHelmet.pfb").c_str(), (translation * scale));
+		}
+	}
+
+	glm::mat4 sponzaMatrix = glm::scale(glm::mat4{ 1.0 }, glm::vec3(1));;
+
+	glm::mat4 unrealFixRotation = glm::rotate(glm::radians(-90.f), glm::vec3{ 1,0,0 });
+
+	LoadPrefab(AssetPath("Sponza2.pfb").c_str(), sponzaMatrix);
+	LoadPrefab(AssetPath("scifi/TopDownScifi.pfb").c_str(), glm::translate(glm::vec3{ 0,20,0 }));
+	int dimcities = 2;
+	for (int x = -dimcities; x <= dimcities; x++) {
+		for (int y = -dimcities; y <= dimcities; y++) {
+
+			glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x * 300, y, y * 300));
+			glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(10));
+
+			glm::mat4 cityMatrix = translation;
+			LoadPrefab(AssetPath("CITY/polycity.pfb").c_str(), cityMatrix);
+		}
+	}
 }
 
 void VulkanEngine::init_imgui()
@@ -990,7 +1103,7 @@ void VulkanEngine::init_imgui()
 	initInfo.ImageCount = 3;
 	initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-	ImGui_ImplVulkan_Init(&initInfo, _renderPass);
+	ImGui_ImplVulkan_Init(&initInfo, renderPass(PassType::Forward));
 
 	immediate_submit([&](VkCommandBuffer cmd) {
 		ImGui_ImplVulkan_CreateFontsTexture(cmd);
@@ -1039,7 +1152,7 @@ VkPipeline VulkanEngine::build_pipeline(const char* vertexShader, const char* fr
 
 	pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
-	VkPipeline pipeline = pipelineBuilder.build_pipeline(m_Device, _renderPass);
+	VkPipeline pipeline = pipelineBuilder.build_pipeline(m_Device, renderPass(PassType::Forward));
 
 	vkDestroyShaderModule(m_Device, triangleFragShader, nullptr);
 	vkDestroyShaderModule(m_Device, triangleVertexShader, nullptr);
@@ -1076,10 +1189,20 @@ ShaderModule* VulkanEngine::GetShaderModule(const std::string& path)
 	return m_ShaderCache.GetShader(path);
 }
 
+bool VulkanEngine::LoadPrefab(const char* path, glm::mat4 root)
+{
+	return false;
+}
+
 
 std::string VulkanEngine::ShaderPath(std::string_view path)
 {
 	return "../../shaders/" + std::string(path);
+}
+
+std::string VulkanEngine::AssetPath(std::string_view path)
+{
+	return "../../assets_export/" + std::string(path);
 }
 
 void VulkanEngine::load_meshes()

@@ -133,9 +133,6 @@ public:
 	GPUSceneData _sceneParameters;
 	AllocatedBuffer _sceneParameterBuffer;
 
-	VkRenderPass _renderPass;
-	VkRenderPass _shadowPass;
-
 	std::vector<VkFramebuffer> _framebuffers;
 
 	VkImageView _depthImageView;
@@ -203,6 +200,8 @@ public:
 
 	ShaderModule* GetShaderModule(const std::string& path);
 
+	bool LoadPrefab(const char* path, glm::mat4 root);
+
 	inline VkDevice device() const;
 	inline vkutil::DescriptorAllocator* descriptorAllocator() const;
 	inline vkutil::DescriptorLayoutCache* descriptorLayoutCache() const;
@@ -210,6 +209,7 @@ public:
 	inline VkRenderPass renderPass(PassType t) const;
 public:
 	static std::string ShaderPath(std::string_view path);
+	static std::string AssetPath(std::string_view path);
 private:
 	void init_vulkan();
 
@@ -217,7 +217,11 @@ private:
 
 	void init_commands();
 
-	void init_default_renderpass();
+	void InitForwardRenderpass();
+
+	void InitCopyRenderpass();
+
+	void InitShadowRenderpass();
 
 	void init_framebuffers();
 
