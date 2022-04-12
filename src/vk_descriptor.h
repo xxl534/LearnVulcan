@@ -52,7 +52,7 @@ namespace vkutil
 
 		void cleanup();
 
-		VkDescriptorSetLayout create_descriptor_layout(VkDescriptorSetLayoutCreateInfo* info);
+		VkDescriptorSetLayout CreateDescriptorLayout(VkDescriptorSetLayoutCreateInfo* info);
 
 		struct DescriptorLayoutInfo {
 			std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -76,15 +76,15 @@ namespace vkutil
 
 	class DescriptorBuilder {
 	public:
-		static DescriptorBuilder begin(DescriptorLayoutCache* layoutCache, DescriptorAllocator* allocator);
+		static DescriptorBuilder Begin(DescriptorLayoutCache* layoutCache, DescriptorAllocator* allocator);
 
-		DescriptorBuilder& bind_buffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
+		DescriptorBuilder& BindBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
 
-		DescriptorBuilder& bind_image(uint32_t binding, VkDescriptorImageInfo* imageInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
+		DescriptorBuilder& BindImage(uint32_t binding, VkDescriptorImageInfo* imageInfo, VkDescriptorType type, VkShaderStageFlags stageFlags);
 
-		bool build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
+		bool Build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
 
-		bool build(VkDescriptorSet& set);
+		bool Build(VkDescriptorSet& set);
 	private:
 		std::vector<VkWriteDescriptorSet> m_Writes;
 

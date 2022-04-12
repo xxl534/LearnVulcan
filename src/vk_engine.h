@@ -12,6 +12,7 @@
 #include <vk_mem_alloc.h>
 #include <vk_mesh.h>
 #include <vk_shader.h>
+#include <material_system.h>
 
 #include <glm/glm.hpp>
 
@@ -105,6 +106,11 @@ struct DeletionQueue
 };
 
 const unsigned int FRAME_OVERLAP = 2;
+enum PassType {
+	Forward,
+	Shadow,
+	Copy,
+};
 
 class VulkanEngine {
 public:
@@ -113,7 +119,6 @@ public:
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;
-	VkDevice _device;
 	VkSurfaceKHR _surface;
 
 	VkSwapchainKHR _swapChain;
@@ -129,6 +134,8 @@ public:
 	AllocatedBuffer _sceneParameterBuffer;
 
 	VkRenderPass _renderPass;
+	VkRenderPass _shadowPass;
+
 	std::vector<VkFramebuffer> _framebuffers;
 
 	VkImageView _depthImageView;
@@ -196,7 +203,11 @@ public:
 
 	ShaderModule* GetShaderModule(const std::string& path);
 
-	inline VkDevice GetDevice() const;
+	inline VkDevice device() const;
+	inline vkutil::DescriptorAllocator* descriptorAllocator() const;
+	inline vkutil::DescriptorLayoutCache* descriptorLayoutCache() const;
+	inline vkutil::MaterialSystem* materialSystem() const;
+	inline VkRenderPass renderPass(PassType t) const;
 public:
 	static std::string ShaderPath(std::string_view path);
 private:
@@ -232,10 +243,38 @@ private:
 private:
 	void clear_vulkan();
 
+	VkDevice m_Device;
+
 	ShaderCache m_ShaderCache;
+
+	std::array<VkRenderPass, 3> m_Passes;
+
+	vkutil::DescriptorAllocator* m_DescriptorAllocator;
+	vkutil::DescriptorLayoutCache* m_DescritptorLayoutCache;
+	vkutil::MaterialSystem* m_MaterialSystem;
 };
 
-inline VkDevice VulkanEngine::GetDevice() const
+inline VkDevice VulkanEngine::device() const
 {
-	return _device;
+	return m_Device;
+}
+
+inline vkutil::DescriptorAllocator* VulkanEngine::descriptorAllocator() const
+{
+	return m_DescriptorAllocator;
+}
+
+inline vkutil::DescriptorLayoutCache* VulkanEngine::descriptorLayoutCache() const
+{
+	return m_DescritptorLayoutCache;
+}
+
+inline vkutil::MaterialSystem* VulkanEngine::materialSystem() const
+{
+	return m_MaterialSystem;
+}
+
+inline VkRenderPass VulkanEngine::renderPass(PassType t) const
+{
+	return m_Passes[t];
 }

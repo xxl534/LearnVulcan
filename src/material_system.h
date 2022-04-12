@@ -103,7 +103,7 @@ namespace vkutil
 	struct EffectTemplate {
 		PerPassData<ShaderPass*> passShaders;
 		ShaderParameters* defaultParameters;
-		assets::TransparencyMode tranparency;
+		assets::TransparencyMode transparency;
 	};
 
 	struct MaterialData

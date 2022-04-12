@@ -127,7 +127,7 @@ namespace vkutil
 		}
 	}
 
-	VkDescriptorSetLayout DescriptorLayoutCache::create_descriptor_layout(VkDescriptorSetLayoutCreateInfo* info)
+	VkDescriptorSetLayout DescriptorLayoutCache::CreateDescriptorLayout(VkDescriptorSetLayoutCreateInfo* info)
 	{
 		DescriptorLayoutInfo layoutInfo;
 		layoutInfo.bindings.reserve(info->bindingCount);
@@ -201,7 +201,7 @@ namespace vkutil
 		return result;
 	}
 
-	DescriptorBuilder DescriptorBuilder::begin(DescriptorLayoutCache* layoutCache, DescriptorAllocator* allocator)
+	DescriptorBuilder DescriptorBuilder::Begin(DescriptorLayoutCache* layoutCache, DescriptorAllocator* allocator)
 	{
 		DescriptorBuilder builder;
 		builder.m_pCache = layoutCache;
@@ -209,7 +209,7 @@ namespace vkutil
 		return builder;
 	}
 
-	DescriptorBuilder& DescriptorBuilder::bind_buffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags)
+	DescriptorBuilder& DescriptorBuilder::BindBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlags)
 	{
 		VkDescriptorSetLayoutBinding newBinding{};
 		newBinding.descriptorCount = 1;
@@ -233,7 +233,7 @@ namespace vkutil
 		return *this;
 	}
 
-	DescriptorBuilder& DescriptorBuilder::bind_image(uint32_t binding, VkDescriptorImageInfo* imageInfo, VkDescriptorType type, VkShaderStageFlags stageFlags)
+	DescriptorBuilder& DescriptorBuilder::BindImage(uint32_t binding, VkDescriptorImageInfo* imageInfo, VkDescriptorType type, VkShaderStageFlags stageFlags)
 	{
 		VkDescriptorSetLayoutBinding newBinding{};
 		newBinding.descriptorCount = 1;
@@ -257,7 +257,7 @@ namespace vkutil
 		return *this;
 	}
 
-	bool DescriptorBuilder::build(VkDescriptorSet& set, VkDescriptorSetLayout& layout)
+	bool DescriptorBuilder::Build(VkDescriptorSet& set, VkDescriptorSetLayout& layout)
 	{
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -266,7 +266,7 @@ namespace vkutil
 		layoutInfo.pBindings = m_Bindings.data();
 		layoutInfo.bindingCount = static_cast<uint32_t>(m_Bindings.size());
 
-		layout = m_pCache->create_descriptor_layout(&layoutInfo);
+		layout = m_pCache->CreateDescriptorLayout(&layoutInfo);
 		
 		bool success = m_pAllocator->allocate(&set, layout);
 		if (!success) {
@@ -283,10 +283,10 @@ namespace vkutil
 		return true;
 	}
 
-	bool DescriptorBuilder::build(VkDescriptorSet& set)
+	bool DescriptorBuilder::Build(VkDescriptorSet& set)
 	{
 		VkDescriptorSetLayout layout;
-		return build(set, layout);
+		return Build(set, layout);
 	}
 
 }

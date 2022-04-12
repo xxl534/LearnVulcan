@@ -10,7 +10,12 @@ void vkutil::MaterialSystem::Init(VulkanEngine* owner)
 
 void vkutil::MaterialSystem::Cleanup()
 {
-
+	for (auto it : m_Materials)
+	{
+		delete it.second;
+	}
+	m_Materials.clear();
+	m_MaterialCache.clear();
 }
 
 ShaderEffect* vkutil::MaterialSystem::BuildEffect(std::string_view vertexShader, std::string_view fragmentShader)
@@ -28,14 +33,68 @@ ShaderEffect* vkutil::MaterialSystem::BuildEffect(std::string_view vertexShader,
 		effect->AddStage(m_Engine->GetShaderModule(VulkanEngine::ShaderPath(fragmentShader)), VK_SHADER_STAGE_FRAGMENT_BIT);
 	}
 
-	effect->ReflectLayout(m_Engine->GetDevice(), overrides, 2);
+	effect->ReflectLayout(m_Engine->device(), overrides, 2);
 
 	return effect;
 }
 
 void vkutil::MaterialSystem::BuildDefaultTemplates()
 {
+	FillBuilders();
 
+	ShaderEffect* texturedLit = BuildEffect("tri_mesh_ssbo_instanced.vert.spv", "textured_lit.frag.spv");
+	ShaderEffect* defaultLit = BuildEffect("tri_mesh_ssbo_instanced.vert.spv", "default_lit.frag.spv");
+	ShaderEffect* opaqueShadowcast = BuildEffect("tri_mesh_ssbo_instanced_shadowcast.vert.spv", "");
+
+	ShaderPass* texturedLitPass = BuildShader(m_Engine->renderPass(PassType::Forward), m_ForwardBuilder, texturedLit);
+	ShaderPass* defaultLitPass = BuildShader(m_Engine->renderPass(PassType::Forward), m_ForwardBuilder, defaultLit);
+	ShaderPass* opaqueShadowcastPass = BuildShader(m_Engine->renderPass(PassType::Shadow), m_ShadowBuilder, opaqueShadowcast);
+
+	{
+		EffectTemplate defaultTextured;
+		defaultTextured.passShaders[MeshpassType::Transparency] = nullptr;
+		defaultTextured.passShaders[MeshpassType::Forward] = texturedLitPass;
+		defaultTextured.passShaders[MeshpassType::DirectionalShadow] = opaqueShadowcastPass;
+		
+		defaultTextured.defaultParameters = nullptr;
+		defaultTextured.transparency = assets::TransparencyMode::Opaque;
+
+		m_TemplateCache["texturedPBR_opaque"] = defaultTextured;
+	}
+	{
+		PipelineBuilder transparentForward = m_ForwardBuilder;
+		transparentForward.colorBlendAttachment.blendEnable = VK_TRUE;
+		transparentForward.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+		transparentForward.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		transparentForward.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+
+		transparentForward.colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+
+		transparentForward.depthStencil.depthWriteEnable = false;
+		transparentForward.rasterizer.cullMode = VK_CULL_MODE_NONE;
+
+		ShaderPass* transparentLitPass = BuildShader(m_Engine->_renderPass, transparentForward, texturedLit);
+
+		EffectTemplate defaultTextured;
+		defaultTextured.passShaders[MeshpassType::Transparency] = transparentLitPass;
+		defaultTextured.passShaders[MeshpassType::DirectionalShadow] = nullptr;
+		defaultTextured.passShaders[MeshpassType::Forward] = nullptr;
+
+		defaultTextured.defaultParameters = nullptr;
+		defaultTextured.transparency = assets::TransparencyMode::Transparent;
+
+		m_TemplateCache["texturedPBR_transparent"] = defaultTextured;
+	}
+	{
+		EffectTemplate defaultColored;
+
+		defaultColored.passShaders[MeshpassType::Transparency] = nullptr;
+		defaultColored.passShaders[MeshpassType::DirectionalShadow] = opaqueShadowcastPass;
+		defaultColored.passShaders[MeshpassType::Forward] = defaultLitPass;
+		defaultColored.defaultParameters = nullptr;
+		defaultColored.transparency = assets::TransparencyMode::Opaque;
+		m_TemplateCache["colored_opaque"] = defaultColored;
+	}
 }
 
 vkutil::ShaderPass* vkutil::MaterialSystem::BuildShader(VkRenderPass renderPass, PipelineBuilder& builder, ShaderEffect* effect)
@@ -46,7 +105,7 @@ vkutil::ShaderPass* vkutil::MaterialSystem::BuildShader(VkRenderPass renderPass,
 
 	PipelineBuilder pipBuilder = builder;
 	pipBuilder.SetShaders(effect);
-	pPass->pipeline = pipBuilder.buildPipeline(m_Engine->GetDevice(), renderPass);
+	pPass->pipeline = pipBuilder.buildPipeline(m_Engine->device(), renderPass);
 
 	return pPass;
 }
@@ -55,10 +114,17 @@ vkutil::Material* vkutil::MaterialSystem::BuildMaterial(const std::string& mater
 {
 	Material* pMat;
 
-	auto it = m_MaterialCache.find(info);
-	if (it != m_MaterialCache.end())
+	auto matIt = m_Materials.find(materialName);
+	if (matIt != m_Materials.end())
 	{
-		pMat = (*it).second;
+		LOG_FATAL("Build material error, material is exist :{}", materialName);
+		return (*matIt).second;
+	}
+	auto cacheIt = m_MaterialCache.find(info);
+	if (cacheIt != m_MaterialCache.end())
+	{
+		pMat = (*cacheIt).second;
+		
 		m_Materials[materialName] = pMat;
 	}
 	else
@@ -70,23 +136,61 @@ vkutil::Material* vkutil::MaterialSystem::BuildMaterial(const std::string& mater
 		pNewMat->passSets[MeshpassType::DirectionalShadow] = VK_NULL_HANDLE;
 		pNewMat->textures = info.textures;
 
-		auto& db = vkutil::DescriptorBuilder::begin(m_Engine->descriptorLayoutCache, m_Engine->descriptorAllocator);
+		auto& db = vkutil::DescriptorBuilder::Begin(m_Engine->descriptorLayoutCache(), m_Engine->descriptorAllocator());
 		for (int i = 0; i < info.textures.size(); ++i)
 		{
-
+			VkDescriptorImageInfo imageBufferInfo{};
+			imageBufferInfo.sampler = info.textures[i].sampler;
+			imageBufferInfo.imageView = info.textures[i].view;
+			imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			db.BindImage(i, &imageBufferInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 		}
+
+		db.Build(pNewMat->passSets[MeshpassType::Forward]);
+		db.Build(pNewMat->passSets[MeshpassType::Transparency]);
+		LOG_INFO("Built New Material {}", materialName);
+
+		m_MaterialCache[info] = pNewMat;
+		pMat = pNewMat;
+		m_Materials[materialName] = pMat;
 	}
 	return pMat;
 }
 
 vkutil::Material* vkutil::MaterialSystem::GetMaterial(const std::string& materialName)
 {
-
+	auto it = m_Materials.find(materialName);
+	if (it != m_Materials.end())
+	{
+		return(*it).second;
+	}
+	else {
+		return nullptr;
+	}
 }
 
 void vkutil::MaterialSystem::FillBuilders()
 {
+	{
+		m_ShadowBuilder.vertexDescription = Vertex::get_vertex_description();
+		m_ShadowBuilder.inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		m_ShadowBuilder.rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
+		m_ShadowBuilder.rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
+		m_ShadowBuilder.rasterizer.depthBiasEnable = VK_TRUE;
+		m_ShadowBuilder.multisampling = vkinit::multisampling_state_create_info();
+		m_ShadowBuilder.colorBlendAttachment = vkinit::color_blend_attachment_state();
+		m_ShadowBuilder.depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS);
+	}
+	{
+		m_ForwardBuilder.vertexDescription = Vertex::get_vertex_description();
+		m_ForwardBuilder.inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		m_ForwardBuilder.rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL);
+		m_ForwardBuilder.rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 
+		m_ForwardBuilder.multisampling = vkinit::multisampling_state_create_info();
+		m_ForwardBuilder.colorBlendAttachment = vkinit::color_blend_attachment_state();
+		m_ForwardBuilder.depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+	}
 }
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass)
