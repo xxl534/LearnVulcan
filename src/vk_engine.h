@@ -79,7 +79,17 @@ struct RenderObject{
 	glm::mat4 transformMatrix;
 };
 
+struct MeshObject {
+	Mesh* mesh{ nullptr };
+	vkutil::Material* material;
+	uint32_t customSortKey;
+	glm::mat4 transformMatrix;
 
+	RenderBounds bounds;
+
+	uint32_t bDrawForwardPass : 1;
+	uint32_t bDrawShadowPass : 1;
+};
 struct Texture {
 	AllocatedImage image;
 	VkImageView imageView;

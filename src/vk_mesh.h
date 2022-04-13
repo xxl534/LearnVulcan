@@ -28,3 +28,10 @@ struct Mesh {
 
 	bool load_from_obj(const char* filename);
 };
+
+struct RenderBounds {
+	glm::vec3 origin;
+	float radius;
+	glm::vec3 extents;
+	bool valid;
+};
