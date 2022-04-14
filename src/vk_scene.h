@@ -37,7 +37,7 @@ struct GPUIndirectObject {
 
 struct RenderObject {
 	Handle<DrawMesh> meshID;
-	Handle<vkutil::Material> material;
+	Handle<vkutil::Material> materialId;
 
 	uint32_t updateIndex;
 	uint32_t customSortKey{ 0 };
@@ -45,7 +45,7 @@ struct RenderObject {
 	vkutil::PerPassData<uint32_t> passIndices;
 
 	glm::mat4 transformMatrix;
-	RenderBounds bound;
+	RenderBounds bounds;
 };
 
 class RenderScene {
@@ -148,16 +148,13 @@ public:
 
 	MeshPass* GetMeshPass(MeshpassType type);
 
-	//MeshPass m_ForwardPass;
-	//MeshPass m_TransparentForwardPass;
-	//MeshPass m_ShadowPass;
 	vkutil::PerPassData<MeshPass> m_Passes;
 
 	std::unordered_map<vkutil::Material*, Handle<vkutil::Material>> materialConvert;
 	std::unordered_map<Mesh*, Handle<DrawMesh>> meshConvert;
 
 	Handle<vkutil::Material> GetMaterialHandle(vkutil::Material* m);
-	Handle<DrawMesh> getMeshHandle(Mesh* m);
+	Handle<DrawMesh> GetMeshHandle(Mesh* m);
 
 	AllocatedBuffer<Vertex> mergedVertexBuffer;
 	AllocatedBuffer<uint32_t> mergedIndexBuffer;

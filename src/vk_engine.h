@@ -67,18 +67,6 @@ enum ShaderType {
 	ShaderType_Compute,
 };
 
-struct Material {
-	VkDescriptorSet textureSet{ VK_NULL_HANDLE };
-	VkPipeline pipeline;
-	VkPipelineLayout pipelineLayout;
-};
-
-struct RenderObject{
-	Mesh* mesh;
-	Material* material;
-	glm::mat4 transformMatrix;
-};
-
 struct MeshObject {
 	Mesh* mesh{ nullptr };
 	vkutil::Material* material;

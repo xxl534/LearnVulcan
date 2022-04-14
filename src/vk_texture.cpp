@@ -24,9 +24,9 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 	AllocatedBuffer stagingBuffer = engine.create_buffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
 	void* data;
-	vmaMapMemory(engine._allocator, stagingBuffer._allocation, &data);
+	vmaMapMemory(engine._allocator, stagingBuffer.allocation, &data);
 	memcpy(data, pPixel, static_cast<size_t>(imageSize));
-	vmaUnmapMemory(engine._allocator, stagingBuffer._allocation);
+	vmaUnmapMemory(engine._allocator, stagingBuffer.allocation);
 
 	stbi_image_free(pPixel);
 
@@ -40,7 +40,7 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 	VmaAllocationCreateInfo imgAllocInfo{};
 	imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-	vmaCreateImage(engine._allocator, &imageInfo, &imgAllocInfo, &newImage._image, &newImage._allocation, nullptr);
+	vmaCreateImage(engine._allocator, &imageInfo, &imgAllocInfo, &newImage.image, &newImage.allocation, nullptr);
 
 	engine.immediate_submit([&](VkCommandBuffer cmd) {
 		VkImageSubresourceRange range;
@@ -55,7 +55,7 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 		imageBarrierToTransfer.pNext = nullptr;
 		imageBarrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageBarrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		imageBarrierToTransfer.image = newImage._image;
+		imageBarrierToTransfer.image = newImage.image;
 		imageBarrierToTransfer.subresourceRange = range;
 
 		imageBarrierToTransfer.srcAccessMask = 0;
@@ -73,7 +73,7 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 		copyRegion.imageSubresource.layerCount = 1;
 		copyRegion.imageExtent = imageExtent;
 
-		vkCmdCopyBufferToImage(cmd, stagingBuffer._buffer, newImage._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+		vkCmdCopyBufferToImage(cmd, stagingBuffer.buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
 		VkImageMemoryBarrier imageBarrierToReadable = imageBarrierToTransfer;
 		imageBarrierToReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -86,10 +86,10 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 	);
 
 	engine._mainDeletionQueue.push_function([=]() {
-		vmaDestroyImage(engine._allocator, newImage._image, newImage._allocation);
+		vmaDestroyImage(engine._allocator, newImage.image, newImage.allocation);
 		}
 	);
-	vmaDestroyBuffer(engine._allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+	vmaDestroyBuffer(engine._allocator, stagingBuffer.buffer, stagingBuffer.allocation);
 
 	outImage = newImage;
 

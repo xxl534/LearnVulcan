@@ -103,10 +103,15 @@ bool Mesh::load_from_obj(const char* filename)
 
 				new_vert.color = new_vert.normal;
 
-				_vertices.push_back(new_vert);
+				vertices.push_back(new_vert);
 			}
 			index_offset += fv;
 		}
 	}
 	return true;
+}
+
+bool Mesh::LoadFromMeshAsset(const char* filename)
+{
+	return false;
 }

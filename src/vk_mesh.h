@@ -22,11 +22,15 @@ struct Vertex {
 };
 
 struct Mesh {
-	std::vector<Vertex> _vertices;
+	std::vector<Vertex> vertices;
+	std::vector<uint16_t> indices;
 
-	AllocatedBuffer _vertexBuffer;
+	AllocatedBuffer<Vertex> vertexBuffer;
+	AllocatedBuffer<uint16_t> indexBuffer;
 
 	bool load_from_obj(const char* filename);
+
+	bool LoadFromMeshAsset(const char* filename);
 };
 
 struct RenderBounds {
