@@ -16,6 +16,6 @@ target_precompile_headers(vulkan_guide PUBLIC "vk_types.h" "<unordered_map>" "<v
 
 target_link_libraries(vulkan_guide vkbootstrap vma glm tinyobjloader imgui stb_image)
 
-target_link_libraries(vulkan_guide Vulkan::Vulkan sdl2 assetlib spirv_reflect)
+target_link_libraries(vulkan_guide Vulkan::Vulkan sdl2 assetlib tracy spirv_reflect)
 
 add_dependencies(vulkan_guide Shaders)

@@ -12,6 +12,11 @@ add_library(spirv_reflect STATIC)
 
 add_library(lz4 STATIC)
 
+set(TRACY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tracy" CACHE FILEPATH "Path to Tracy")
+add_library(tracy OBJECT "${TRACY_DIR}/TracyClient.cpp")
+target_include_directories(tracy PUBLIC "${TRACY_DIR}")
+target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
+
 target_sources(vkbootstrap PRIVATE 
     vkbootstrap/VkBootstrap.h
     vkbootstrap/VkBootstrap.cpp

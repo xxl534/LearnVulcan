@@ -38,8 +38,9 @@ struct GPUCameraData
 };
 
 struct GPUObjectData {
-	glm::vec4 color;
 	glm::mat4 modelMatrix;
+	glm::vec4 originRadius;
+	glm::vec4 extents;
 };
 
 struct FrameData {
