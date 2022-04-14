@@ -222,6 +222,16 @@ void RenderScene::RefreshPass(MeshPass* pass)
         std::vector<RenderScene::RenderBatch> deletionBatch;
         deletionBatch.reserve(newObjects.size());
 
+        auto calcPassObjectHash = [](const RenderScene::PassObject& obj)
+        {
+            uint64_t pipelineHash = std::hash<uint64_t>()(uint64_t(obj.material.shaderPass->pipeline));
+            uint64_t setHash = std::hash<uint64_t>()((uint64_t)obj.material.materialSet);
+
+            uint32_t matHash = static_cast<uint32_t>(pipelineHash ^ setHash);
+            uint32_t meshMatHash = uint64_t(matHash) ^ uint64_t(obj.meshId.handle);
+
+            return uint64_t(meshMatHash) | (uint64_t(obj.customKey) << 32);
+        };
         for (auto i : pass->objectsToDelete)
         {
             pass->reusableObjects.push_back(i);
@@ -229,14 +239,7 @@ void RenderScene::RefreshPass(MeshPass* pass)
 
             auto obj = pass->objects[i.handle];
             newCmd.object = i;
-
-            uint64_t pipelineHash = std::hash<uint64_t>()(uint64_t(obj.material.shaderPass->pipeline));
-            uint64_t setHash = std::hash<uint64_t>()((uint64_t)obj.material.materialSet);
-
-            uint32_t matHash = static_cast<uint32_t>(pipelineHash ^ setHash);
-            uint32_t meshMatHash = uint64_t(matHash) ^ uint64_t(obj.meshId.handle);
-
-            newCmd.sortKey = uint64_t(meshMatHash) | (uint64_t(obj.customKey) << 32);
+            newCmd.sortKey = calcPassObjectHash(obj);
 
             pass->objects[i.handle].customKey = 0;
             pass->objects[i.handle].material.shaderPass = nullptr;
@@ -245,19 +248,19 @@ void RenderScene::RefreshPass(MeshPass* pass)
 
             deletionBatch.push_back(newCmd);
         }
+        auto cmpRenderBatch = [](const RenderScene::RenderBatch& a, const RenderScene::RenderBatch& b)
+        {
+            if (a.sortKey == b.sortKey)
+            {
+                return a.object.handle < b.object.handle;
+            }
+            return a.sortKey < b.sortKey;
+        };
         pass->objectsToDelete.clear();
         {
             ZoneScopedNC("Deletion Sort", tracy::Color::Blue1);
-            std::sort(deletionBatch.begin(), deletionBatch.end(), [](const RenderScene::RenderBatch& a, const RenderScene::RenderBatch& b)
-            {
-                if (a.sortKey == b.sortKey)
-                {
-                    return a.object.handle < b.object.handle;
-                }
-                return a.sortKey < b.sortKey;
-            });
+            std::sort(deletionBatch.begin(), deletionBatch.end(), cmpRenderBatch);
         }
-
         {
             ZoneScopedNC("removal", tracy::Color::Blue1);
 
@@ -266,10 +269,13 @@ void RenderScene::RefreshPass(MeshPass* pass)
             {
                 ZoneScopedNC("Set Difference", tracy::Color::Red);
 
-                std::set_difference()
+                std::set_difference(pass->flatBatches.begin(), pass->flatBatches.end(), deletionBatch.begin(), deletionBatch.end(), std::back_inserter(newBatches), cmpRenderBatch);
             }
-
+            pass->flatBatches = std::move(newBatches);
         }
+    }
+    {
+
     }
 }
 
