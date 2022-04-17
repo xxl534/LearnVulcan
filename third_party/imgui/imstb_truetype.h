@@ -4295,7 +4295,7 @@ STBTT_DEF int stbtt_PackFontRangesRenderIntoRects(stbtt_pack_context *spc, const
       }
    }
 
-   // restore original values
+   // restore originalObjectId values
    spc->h_oversample = old_h_over;
    spc->v_oversample = old_v_over;
 

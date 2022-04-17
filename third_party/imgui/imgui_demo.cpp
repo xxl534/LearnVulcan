@@ -813,7 +813,7 @@ static void ShowDemoWindowWidgets()
                 ImGui::Unindent(ImGui::GetTreeNodeToLabelSpacing());
 
             // 'selection_mask' is dumb representation of what may be user-side selection state.
-            //  You may retain selection state inside or outside your objects in whatever format you see fit.
+            //  You may retain selection state inside or outside your passObjects in whatever format you see fit.
             // 'node_clicked' is temporary storage of what node we have clicked to process selection at the end
             /// of the loop. May be a pointer to your own node type, etc.
             static int selection_mask = (1 << 2);
@@ -1170,7 +1170,7 @@ static void ShowDemoWindowWidgets()
         //   When Selectable() has been clicked it returns true and you can alter selection state accordingly.
         // - The one taking "bool* p_selected" as a read-write selection information (convenient in some cases)
         // The earlier is more flexible, as in real application your selection may be stored in many different ways
-        // and not necessarily inside a bool value (e.g. in flags within objects, as an external list, etc).
+        // and not necessarily inside a bool value (e.g. in flags within passObjects, as an external list, etc).
         IMGUI_DEMO_MARKER("Widgets/Selectables/Basic");
         if (ImGui::TreeNode("Basic"))
         {
@@ -1953,7 +1953,7 @@ static void ShowDemoWindowWidgets()
         // To avoid polluting the public API with all possible combinations, we use the ImGuiDataType enum
         // to pass the type, and passing all arguments by pointer.
         // This is the reason the test code below creates local variables to hold "zero" "one" etc. for each types.
-        // In practice, if you frequently use a given type that is not covered by the normal API entry points,
+        // In practice, if you frequently use a given type that is not covered by the octNormal API entry points,
         // you can wrap it yourself inside a 1 line function which can take typed argument as value instead of void*,
         // and then pass their address to the generic function. For example:
         //   bool MySliderU64(const char *label, u64* value, u64 min = 0, u64 max = 0, const char* format = "%lld")
@@ -3260,7 +3260,7 @@ static void ShowDemoWindowPopups()
         return;
 
     // The properties of popups windows are:
-    // - They block normal mouse hovering detection outside them. (*)
+    // - They block octNormal mouse hovering detection outside them. (*)
     // - Unless modal, they can be closed by clicking anywhere outside them, or by pressing ESCAPE.
     // - Their visibility state (~bool) is held internally by Dear ImGui instead of being held by the programmer as
     //   we are used to with regular Begin() calls. User can manipulate the visibility state by calling OpenPopup().
@@ -6951,7 +6951,7 @@ static void ShowExampleAppLog(bool* p_open)
 {
     static ExampleAppLog log;
 
-    // For the demo: add a debug button _BEFORE_ the normal log window contents
+    // For the demo: add a debug button _BEFORE_ the octNormal log window contents
     // We take advantage of a rarely used feature: multiple calls to Begin()/End() are appending to the _same_ window.
     // Most of the contents of the window will be added by the log.Draw() call.
     ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
@@ -7115,7 +7115,7 @@ static void ShowExampleAppPropertyEditor(bool* p_open)
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
     if (ImGui::BeginTable("split", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
     {
-        // Iterate placeholder objects (all the same data)
+        // Iterate placeholder passObjects (all the same data)
         for (int obj_i = 0; obj_i < 4; obj_i++)
         {
             ShowPlaceholderObject("Object", obj_i);

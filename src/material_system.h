@@ -118,7 +118,7 @@ namespace vkutil
 	};
 
 	struct Material {
-		EffectTemplate* original;
+		EffectTemplate* originalTemplate;
 		PerPassData<VkDescriptorSet> passSets;
 		std::vector<SampledTexture> textures;
 		ShaderParameters* parameters;

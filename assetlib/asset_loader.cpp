@@ -32,7 +32,7 @@ bool assets::save_binaryFile(const char* path, const AssetFile& file)
 	return true;
 }
 
-bool assets::load_binaryFile(const char* path, AssetFile& outputFile)
+bool assets::LoadBinaryFile(const char* path, AssetFile& outputFile)
 {
 	std::ifstream infile;
 	infile.open(path, std::ios::binary);

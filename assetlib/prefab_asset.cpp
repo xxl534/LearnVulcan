@@ -9,7 +9,7 @@ static const char* s_kNodeMeshes = "node_meshes";
 static const char* s_kMeshPath = "mesh_path";
 static const char* s_kMaterialPath = "material_path";
 
-assets::PrefabInfo assets::read_prefab_info(AssetFile* file)
+assets::PrefabInfo assets::ReadPrefabInfo(AssetFile* file)
 {
 	PrefabInfo info;
 	json metadata = json::parse(file->json);

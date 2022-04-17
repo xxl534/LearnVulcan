@@ -194,7 +194,7 @@
 // to traverse the entire layout incrementally. You need to compute word-wrapping
 // here.
 //
-// Each textfield keeps its own insert mode state, which is not how normal
+// Each textfield keeps its own insert mode state, which is not how octNormal
 // applications work. To keep an app-wide insert mode, update/copy the
 // "insert_mode" field of STB_TexteditState before/after calling API functions.
 //

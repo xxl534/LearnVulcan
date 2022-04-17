@@ -128,7 +128,7 @@ CODE
    - CTRL+A our Double-Click to select all.
    - CTRL+X,CTRL+C,CTRL+V to use OS clipboard/
    - CTRL+Z,CTRL+Y to undo/redo.
-   - ESCAPE to revert text to its original value.
+   - ESCAPE to revert text to its originalObjectId value.
    - Controls are automatically adjusted for OSX to match standard OSX text editing operations.
  - General Keyboard controls: enable with ImGuiConfigFlags_NavEnableKeyboard.
  - General Gamepad controls: enable with ImGuiConfigFlags_NavEnableGamepad. See suggested mappings in imgui.h ImGuiNavInput_ + download PNG/PSD at http://dearimgui.org/controls_sheets
@@ -316,7 +316,7 @@ CODE
                  if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                      continue;
 
-                 // We are using scissoring to clip some objects. All low-level graphics API should support it.
+                 // We are using scissoring to clip some passObjects. All low-level graphics API should support it.
                  // - If your engine doesn't support scissoring yet, you may ignore this at first. You will get some small glitches
                  //   (some elements visible outside their bounds) but you can fix that once everything else works!
                  // - Clipping coordinates are provided in imgui coordinates space:
@@ -5279,7 +5279,7 @@ void ImGui::EndChild()
     g.LogLinePosY = -FLT_MAX; // To enforce a carriage return
 }
 
-// Helper to create a child window / scrolling region that looks like a normal widget frame.
+// Helper to create a child window / scrolling region that looks like a octNormal widget frame.
 bool ImGui::BeginChildFrame(ImGuiID id, const ImVec2& size, ImGuiWindowFlags extra_flags)
 {
     ImGuiContext& g = *GImGui;
@@ -6413,7 +6413,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         window->InnerRect.Max.y = window->Pos.y + window->Size.y - window->ScrollbarSizes.y;
 
         // Inner clipping rectangle.
-        // Will extend a little bit outside the normal work region.
+        // Will extend a little bit outside the octNormal work region.
         // This is to allow e.g. Selectable or CollapsingHeader or some separators to cover that space.
         // Force round operator last to ensure that e.g. (int)(max.x-min.x) in user's render code produce correct result.
         // Note that if our window is collapsed we will end up with an inverted (~null) clipping rectangle which is the correct behavior.

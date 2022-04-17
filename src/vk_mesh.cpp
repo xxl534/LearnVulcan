@@ -1,6 +1,11 @@
 #include "vk_mesh.h"
 #include <tiny_obj_loader.h>
 #include <iostream>
+#include <glm/common.hpp>
+#include <glm/detail/func_geometric.inl>
+#include <asset_loader.h>
+#include <mesh_asset.h>
+#include <logger.h>
 
 
 VertexInputDescription Vertex::get_vertex_description()
@@ -24,7 +29,7 @@ VertexInputDescription Vertex::get_vertex_description()
 	normalAttribute.binding = 0;
 	normalAttribute.location = 1;
 	normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-	normalAttribute.offset = offsetof(Vertex, normal);
+	normalAttribute.offset = offsetof(Vertex, octNormal);
 
 	VkVertexInputAttributeDescription colorAttribute{};
 	colorAttribute.binding = 0;
@@ -46,72 +51,153 @@ VertexInputDescription Vertex::get_vertex_description()
 	return description;
 }
 
-bool Mesh::load_from_obj(const char* filename)
+glm::vec2 OctNormalWrap(glm::vec2 v)
 {
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
+	glm::vec2 wrap;
+	wrap.x = (1.0f - glm::abs(v.y)) * (v.x > 0.f ? 1.f : -1.f);
+	wrap.y = (1.0f - glm::abs(v.x)) * (v.y > 0.f ? 1.f : -1.f);
+	return wrap;
+}
 
-	std::string warn;
-	std::string err;
+glm::vec2 OctNormalEncode(glm::vec3 n)
+{
+	n /= (glm::abs(n.x) + glm::abs(n.y) + glm::abs(n.z));
 
-	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, nullptr);
-	if (!warn.empty())
+	glm::vec2 result;
+	if (n.z >= 0)
 	{
-		std::cout<<"Load obj warning: "<<warn<<std::endl;
+		result.x = n.x;
+		result.y = n.y;
+	}
+	else
+	{
+		result = OctNormalWrap(n);
 	}
 
-	if (!err.empty())
-	{
-		std::cerr << err << std::endl;
-		return false;
-	}
+	result = result * 0.5f + 0.5f;
+	return result;
+}
 
-	for (size_t s = 0; s < shapes.size(); ++s)
-	{
-		size_t index_offset = 0;
-		tinyobj::shape_t& shape = shapes[s];
-		for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f)
-		{
-			int fv = 3;
-			for (size_t v = 0; v < fv; ++v)
-			{
-				tinyobj::index_t idx = shape.mesh.indices[index_offset + v];
+glm::vec3 OctNormalDecode(glm::vec2 encN)
+{
+	encN = encN * 2.f - 1.f;
+	glm::vec3 n = glm::vec3(encN.x, encN.y, 1.f - glm::abs(encN.x) - glm::abs(encN.y));
+	float t = glm::clamp(-n.z, 0.f, 1.f);
 
-				tinyobj::real_t vx = attrib.vertices[3 * idx.vertex_index + 0];
-				tinyobj::real_t vy = attrib.vertices[3 * idx.vertex_index + 1];
-				tinyobj::real_t vz = attrib.vertices[3 * idx.vertex_index + 2];
+	n.x += n.x >= 0.f ? -t : t;
+	n.y += n.y >= 0.f ? -t : t;
 
-				tinyobj::real_t nx = attrib.normals[3 * idx.normal_index + 0];
-				tinyobj::real_t ny = attrib.normals[3 * idx.normal_index + 1];
-				tinyobj::real_t nz = attrib.normals[3 * idx.normal_index + 2];
+	n = glm::normalize(n);
+	return n;
+}
+void Vertex::PackNormal(glm::vec3 n)
+{
+	glm::vec2 oct = OctNormalEncode(n);
 
-				tinyobj::real_t uv_u = attrib.texcoords[2 * idx.texcoord_index + 0];
-				tinyobj::real_t uv_v = attrib.texcoords[2 * idx.texcoord_index + 1];
+	octNormal.x = uint8_t(oct.x * 255);
+	octNormal.y = uint8_t(oct.y * 255);
+}
 
-				Vertex new_vert;
-				new_vert.position.x = vx;
-				new_vert.position.y = vy;
-				new_vert.position.z = vz;
-
-				new_vert.normal.x = nx;
-				new_vert.normal.y = ny;
-				new_vert.normal.z = nz;
-
-				new_vert.uv.x = uv_u;
-				new_vert.uv.y = 1 - uv_v;
-
-				new_vert.color = new_vert.normal;
-
-				vertices.push_back(new_vert);
-			}
-			index_offset += fv;
-		}
-	}
-	return true;
+void Vertex::PackColor(glm::vec3 c)
+{
+	color.r = uint8_t(c.x * 255);
+	color.g = uint8_t(c.y * 255);
+	color.b = uint8_t(c.z * 255);
 }
 
 bool Mesh::LoadFromMeshAsset(const char* filename)
 {
-	return false;
+	assets::AssetFile file;
+	bool loaded = assets::LoadBinaryFile(filename, file);
+
+	if (!loaded)
+	{
+		LOG_ERROR("Error when loading mesh {}", filename);
+		return false;
+	}
+
+	assets::MeshInfo meshInfo = assets::ReadMeshInfo(&file);
+
+	std::vector<char> vertexBuffer;
+	std::vector<char> indexBuffer;
+
+	vertexBuffer.resize(meshInfo.vertexBufferSize);
+	indexBuffer.resize(meshInfo.indexBufferSize);
+
+	assets::UnpackMesh(&meshInfo, file.binaryBlob.data(), file.binaryBlob.size(), vertexBuffer.data(), indexBuffer.data());
+
+	bounds.FromMeshBound(meshInfo.bounds);
+
+	vertices.clear();
+	indices.clear();
+
+	indices.resize(indexBuffer.size() / sizeof(uint32_t));
+	memcpy(indices.data(), indexBuffer.data(), indexBuffer.size());
+	/*for (int i = 0; i < indices.size(); ++i)
+	{
+		uint32_t* unpackedIndices = (uint32_t*)indexBuffer.data();
+		indices[i] = unpackedIndices[i];
+	}*/
+
+	if (meshInfo.vertexFormat == assets::VertexFormat::PNCV_F32)
+	{
+		assets::Vertex_f32_PNCV* unpackedVertices = (assets::Vertex_f32_PNCV*)vertexBuffer.data();
+		vertices.resize(vertexBuffer.size() / sizeof(assets::Vertex_f32_PNCV));
+
+		for (int i = 0; i < vertices.size(); ++i)
+		{
+			vertices[i].position.x = unpackedVertices[i].position[0];
+			vertices[i].position.y = unpackedVertices[i].position[1];
+			vertices[i].position.z = unpackedVertices[i].position[2];
+
+			vertices[i].PackNormal(glm::vec3(unpackedVertices[i].normal[0], 
+				unpackedVertices[i].normal[1], 
+				unpackedVertices[i].normal[2]));
+			vertices[i].PackColor(glm::vec3(unpackedVertices[i].color[0],
+				unpackedVertices[i].color[1],
+				unpackedVertices[i].color[2]));
+
+			vertices[i].uv.x = unpackedVertices[i].uv[0];
+			vertices[i].uv.y = unpackedVertices[i].uv[1];
+		}
+	}
+	else if (meshInfo.vertexFormat == assets::VertexFormat::P32N8C8V16)
+	{
+		assets::Vertex_P32N8C8V16* unpackedVertices = (assets::Vertex_P32N8C8V16*)vertexBuffer.data();
+		vertices.resize(vertexBuffer.size() / sizeof(assets::Vertex_P32N8C8V16));
+
+		for (int i = 0; i < vertices.size(); ++i)
+		{
+			vertices[i].position.x = unpackedVertices[i].position[0];
+			vertices[i].position.y = unpackedVertices[i].position[1];
+			vertices[i].position.z = unpackedVertices[i].position[2];
+
+			vertices[i].PackNormal(glm::vec3(unpackedVertices[i].normal[0],
+				unpackedVertices[i].normal[1],
+				unpackedVertices[i].normal[2]));
+			vertices[i].color.x = unpackedVertices[i].color[0];
+			vertices[i].color.y = unpackedVertices[i].color[1];
+			vertices[i].color.z = unpackedVertices[i].color[2];
+
+			vertices[i].uv.x = unpackedVertices[i].uv[0];
+			vertices[i].uv.y = unpackedVertices[i].uv[1];
+		}
+	}
+	
+	LOG_SUCCESS("Loaded mesh {} : Verts {}, tris = {}", filename, vertices.size(), indices.size() / 3);
+	return true;
+}
+
+void RenderBounds::FromMeshBound(assets::MeshBounds& meshBounds)
+{
+	extents.x = meshBounds.extents[0];
+	extents.y = meshBounds.extents[1];
+	extents.z = meshBounds.extents[2];
+
+	origin.x = meshBounds.origin[0];
+	origin.y = meshBounds.origin[1];
+	origin.z = meshBounds.origin[2];
+
+	radius = meshBounds.radius;
+	valid = true;
 }

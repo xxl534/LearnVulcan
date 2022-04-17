@@ -122,7 +122,7 @@ assets::AssetFile assets::pack_texture(TextureInfo* info, void* pixelData)
 
         float compression_rate = float(compressedSize) / float(info->textureSize);
 
-        //if the compression is more than 80% of the original size, its not worth to use it
+        //if the compression is more than 80% of the originalObjectId size, its not worth to use it
         if (compression_rate > 0.8)
         {
             compressedSize = p.originalSize;

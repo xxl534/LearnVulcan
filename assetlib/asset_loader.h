@@ -19,7 +19,7 @@ namespace assets
 
 	bool save_binaryFile(const char* path, const AssetFile& file);
 
-	bool load_binaryFile(const char* path, AssetFile& outputFile);
+	bool LoadBinaryFile(const char* path, AssetFile& outputFile);
 
 	assets::CompressionMode parse_compression(const char* f);
 }

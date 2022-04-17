@@ -46,9 +46,9 @@ void vkutil::MaterialSystem::BuildDefaultTemplates()
 	ShaderEffect* defaultLit = BuildEffect("tri_mesh_ssbo_instanced.vert.spv", "default_lit.frag.spv");
 	ShaderEffect* opaqueShadowcast = BuildEffect("tri_mesh_ssbo_instanced_shadowcast.vert.spv", "");
 
-	ShaderPass* texturedLitPass = BuildShader(m_Engine->renderPass(PassType::Forward), m_ForwardBuilder, texturedLit);
-	ShaderPass* defaultLitPass = BuildShader(m_Engine->renderPass(PassType::Forward), m_ForwardBuilder, defaultLit);
-	ShaderPass* opaqueShadowcastPass = BuildShader(m_Engine->renderPass(PassType::Shadow), m_ShadowBuilder, opaqueShadowcast);
+	ShaderPass* texturedLitPass = BuildShader(m_Engine->GetRenderPass(PassType::Forward), m_ForwardBuilder, texturedLit);
+	ShaderPass* defaultLitPass = BuildShader(m_Engine->GetRenderPass(PassType::Forward), m_ForwardBuilder, defaultLit);
+	ShaderPass* opaqueShadowcastPass = BuildShader(m_Engine->GetRenderPass(PassType::Shadow), m_ShadowBuilder, opaqueShadowcast);
 
 	{
 		EffectTemplate defaultTextured;
@@ -73,7 +73,7 @@ void vkutil::MaterialSystem::BuildDefaultTemplates()
 		transparentForward.depthStencil.depthWriteEnable = false;
 		transparentForward.rasterizer.cullMode = VK_CULL_MODE_NONE;
 
-		ShaderPass* transparentLitPass = BuildShader(m_Engine->renderPass(PassType::Forward), transparentForward, texturedLit);
+		ShaderPass* transparentLitPass = BuildShader(m_Engine->GetRenderPass(PassType::Forward), transparentForward, texturedLit);
 
 		EffectTemplate defaultTextured;
 		defaultTextured.passShaders[MeshpassType::Transparency] = transparentLitPass;
@@ -130,7 +130,7 @@ vkutil::Material* vkutil::MaterialSystem::BuildMaterial(const std::string& mater
 	else
 	{
 		Material* pNewMat = new Material();
-		pNewMat->original = &m_TemplateCache[info.baseTemplate];
+		pNewMat->originalTemplate = &m_TemplateCache[info.baseTemplate];
 		pNewMat->parameters = info.parameters;
 
 		pNewMat->passSets[MeshpassType::DirectionalShadow] = VK_NULL_HANDLE;

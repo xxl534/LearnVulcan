@@ -2018,7 +2018,7 @@ LZ4_decompress_generic(
               || ((!endOnInput) && (cpy>oend-WILDCOPYLENGTH)) )
             {
                 /* We've either hit the input parsing restriction or the output parsing restriction.
-                 * In the normal scenario, decoding a full block, it must be the last sequence,
+                 * In the octNormal scenario, decoding a full block, it must be the last sequence,
                  * otherwise it's an error (invalid input or dimensions).
                  * In partialDecoding scenario, it's necessary to ensure there is no buffer overflow.
                  */
@@ -2048,7 +2048,7 @@ LZ4_decompress_generic(
                     }
                 } else {
                     /* We must be on the last sequence because of the parsing limitations so check
-                     * that we exactly regenerate the original size (must be exact when !endOnInput).
+                     * that we exactly regenerate the originalObjectId size (must be exact when !endOnInput).
                      */
                     if ((!endOnInput) && (cpy != oend)) { goto _output_error; }
                      /* We must be on the last sequence (or invalid) because of the parsing limitations

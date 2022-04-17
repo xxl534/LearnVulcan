@@ -222,7 +222,7 @@ struct material_t {
   std::string metallic_texname;   // map_Pm
   std::string sheen_texname;      // map_Ps
   std::string emissive_texname;   // map_Ke
-  std::string normal_texname;     // norm. For normal mapping.
+  std::string normal_texname;     // norm. For octNormal mapping.
 
   texture_option_t roughness_texopt;
   texture_option_t metallic_texopt;
@@ -327,7 +327,7 @@ struct tag_t {
   std::vector<std::string> stringValues;
 };
 
-// Index struct to support different indices for vtx/normal/texcoord.
+// Index struct to support different indices for vtx/octNormal/texcoord.
 // -1 means not used.
 struct index_t {
   int vertex_index;
@@ -657,7 +657,7 @@ struct face_t {
 // Internal data structure for line representation
 struct __line_t {
   // l v1/vt1 v2/vt2 ...
-  // In the specification, line primitrive does not have normal index, but
+  // In the specification, line primitrive does not have octNormal index, but
   // TinyObjLoader allow it
   std::vector<vertex_index_t> vertex_indices;
 };
@@ -665,7 +665,7 @@ struct __line_t {
 // Internal data structure for points representation
 struct __points_t {
   // p v1 v2 ...
-  // In the specification, point primitrive does not have normal index and
+  // In the specification, point primitrive does not have octNormal index and
   // texture coord index, but TinyObjLoader allow it.
   std::vector<vertex_index_t> vertex_indices;
 };
@@ -2024,7 +2024,7 @@ void LoadMtl(std::map<std::string, int> *material_map,
       continue;
     }
 
-    // PBR: normal map texture
+    // PBR: octNormal map texture
     if ((0 == strncmp(token, "norm", 4)) && IS_SPACE(token[4])) {
       token += 5;
       ParseTextureNameAndOption(&(material.normal_texname),
@@ -2253,7 +2253,7 @@ bool LoadObj(attrib_t *attrib, std::vector<shape_t> *shapes,
       continue;
     }
 
-    // normal
+    // octNormal
     if (token[0] == 'v' && token[1] == 'n' && IS_SPACE((token[2]))) {
       token += 3;
       real_t x, y, z;
@@ -2737,7 +2737,7 @@ bool LoadObjWithCallback(std::istream &inStream, const callback_t &callback,
       continue;
     }
 
-    // normal
+    // octNormal
     if (token[0] == 'v' && token[1] == 'n' && IS_SPACE((token[2]))) {
       token += 3;
       real_t x, y, z;

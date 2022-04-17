@@ -5,7 +5,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, AllocatedImage& outImage)
+bool vkutil::LoadImageFromFile(VulkanEngine& engine, const char* file, AllocatedImage& outImage)
 {
 	int texWidth, texHeight, texChannels;
 	stbi_uc* pixels = stbi_load(file, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -21,12 +21,12 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 
 	VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
 
-	AllocatedBuffer stagingBuffer = engine.create_buffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+	AllocatedBuffer stagingBuffer = engine.CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
 	void* data;
-	vmaMapMemory(engine._allocator, stagingBuffer.allocation, &data);
+	vmaMapMemory(engine.m_Allocator, stagingBuffer.allocation, &data);
 	memcpy(data, pPixel, static_cast<size_t>(imageSize));
-	vmaUnmapMemory(engine._allocator, stagingBuffer.allocation);
+	vmaUnmapMemory(engine.m_Allocator, stagingBuffer.allocation);
 
 	stbi_image_free(pPixel);
 
@@ -40,7 +40,7 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 	VmaAllocationCreateInfo imgAllocInfo{};
 	imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-	vmaCreateImage(engine._allocator, &imageInfo, &imgAllocInfo, &newImage.image, &newImage.allocation, nullptr);
+	vmaCreateImage(engine.m_Allocator, &imageInfo, &imgAllocInfo, &newImage.image, &newImage.allocation, nullptr);
 
 	engine.immediate_submit([&](VkCommandBuffer cmd) {
 		VkImageSubresourceRange range;
@@ -85,11 +85,11 @@ bool vkutil::load_image_from_file(VulkanEngine& engine, const char* file, Alloca
 		}
 	);
 
-	engine._mainDeletionQueue.push_function([=]() {
-		vmaDestroyImage(engine._allocator, newImage.image, newImage.allocation);
+	engine.m_MainDeletionQueue.push_function([=]() {
+		vmaDestroyImage(engine.m_Allocator, newImage.image, newImage.allocation);
 		}
 	);
-	vmaDestroyBuffer(engine._allocator, stagingBuffer.buffer, stagingBuffer.allocation);
+	vmaDestroyBuffer(engine.m_Allocator, stagingBuffer.buffer, stagingBuffer.allocation);
 
 	outImage = newImage;
 

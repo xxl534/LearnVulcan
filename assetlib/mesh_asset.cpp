@@ -31,7 +31,7 @@ assets::VertexFormat parse_format(const char* f)
 }
 
 
-assets::MeshInfo assets::read_mesh_info(AssetFile* file)
+assets::MeshInfo assets::ReadMeshInfo(AssetFile* file)
 {
 	MeshInfo info;
 
@@ -56,7 +56,7 @@ assets::MeshInfo assets::read_mesh_info(AssetFile* file)
 	return info;
 }
 
-void assets::unpack_mesh(MeshInfo* info, const char* sourceBuffer, size_t sourceSize, char* vertexBuffer, char* indexBuffer)
+void assets::UnpackMesh(MeshInfo* info, const char* sourceBuffer, size_t sourceSize, char* vertexBuffer, char* indexBuffer)
 {
 	std::vector<char> decompressedBuffer;
 	decompressedBuffer.reserve(info->vertexBufferSize + info->indexBufferSize);

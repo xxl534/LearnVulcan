@@ -19,7 +19,7 @@ namespace assets {
 		std::vector<std::array<float, 16>> matrices;
 	};
 
-	PrefabInfo read_prefab_info(AssetFile* file);
+	PrefabInfo ReadPrefabInfo(AssetFile* file);
 
 	AssetFile pack_prefab(const PrefabInfo& info);
 }

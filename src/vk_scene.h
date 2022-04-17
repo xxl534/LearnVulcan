@@ -36,7 +36,7 @@ struct GPUIndirectObject {
 };
 
 struct RenderObject {
-	Handle<DrawMesh> meshID;
+	Handle<DrawMesh> drawMeshId;
 	Handle<vkutil::Material> materialId;
 
 	uint32_t updateIndex;
@@ -70,7 +70,7 @@ public:
 	struct PassObject {
 		PassMaterial material;
 		Handle<DrawMesh> meshId;
-		Handle<RenderObject> original;
+		Handle<RenderObject> originalObjectId;
 		int32_t builtbatch;
 		uint32_t customKey;
 	};
@@ -86,17 +86,17 @@ public:
 	struct MeshPass {
 		std::vector<RenderScene::Multibatch> multibatches;
 
-		std::vector<RenderScene::IndirectBatch> batches;
+		std::vector<RenderScene::IndirectBatch> indirectBatches;
 
-		std::vector<Handle<RenderObject>> unbatchedObject;
+		std::vector<Handle<RenderObject>> unbatchedRenderObjectIds;
 
-		std::vector<RenderScene::RenderBatch> flatBatches;
+		std::vector<RenderScene::RenderBatch> flatRenderBatches;
 
-		std::vector<PassObject> objects;
+		std::vector<PassObject> passObjects;
 
-		std::vector<Handle<PassObject>> reusableObjects;
+		std::vector<Handle<PassObject>> reusablePassObjectIds;
 
-		std::vector<Handle<PassObject>> objectsToDelete;
+		std::vector<Handle<PassObject>> passObjectsToDelete;
 
 		AllocatedBuffer<uint32_t> compactedInstanceBuffer;
 		AllocatedBuffer<GPUInstance> passObjectsBuffer;

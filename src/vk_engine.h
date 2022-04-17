@@ -12,14 +12,22 @@
 #include <vk_mem_alloc.h>
 #include <vk_mesh.h>
 #include <vk_shader.h>
+#include <vk_scene.h>
 #include <material_system.h>
 
 #include <glm/glm.hpp>
 
+namespace assets {
+	struct PrefabInfo;
+}
+
+namespace vkutil
+{
+	class VulkanProfiler;
+}
 struct UploadContext {
 	VkFence uploadFence;
 	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
 };
 struct GPUSceneData
 {
@@ -47,8 +55,8 @@ struct FrameData {
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
-	VkCommandPool _commandPool;
-	VkCommandBuffer _mainCommandBuffer;
+	VkCommandPool commandPool;
+	VkCommandBuffer mainCommandBuffer;
 
 	AllocatedBuffer cameraBuffer;
 	VkDescriptorSet globalDescriptor;
@@ -70,6 +78,7 @@ enum ShaderType {
 
 struct MeshObject {
 	Mesh* mesh{ nullptr };
+
 	vkutil::Material* material;
 	uint32_t customSortKey;
 	glm::mat4 transformMatrix;
@@ -114,30 +123,28 @@ enum PassType {
 class VulkanEngine {
 public:
 
-	VkPhysicalDeviceProperties _gpuProperties;
-	VkInstance _instance;
+	VkPhysicalDeviceProperties m_GpuPropertices;
+	VkInstance m_Instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
-	VkPhysicalDevice _chosenGPU;
+	VkPhysicalDevice m_ChosenGPU;
 	VkSurfaceKHR _surface;
 
-	VkSwapchainKHR _swapChain;
-	VkFormat _swapchainImageFormat;
-	std::vector<VkImage> _swapchainImages;
-	std::vector<VkImageView> _swapchainImageViews;
+	VkSwapchainKHR m_SwapChain;
+	VkFormat m_SwapchainImageFormat;
+	std::vector<VkImage> m_SwapchainImages;
+	std::vector<VkImageView> m_SwapchainImageViews;
 
 	VkQueue _graphicsQueue;
-	uint32_t _graphicsQueueFamily;
+	uint32_t m_GraphicsQueueFamily;
 
-	FrameData _frames[FRAME_OVERLAP];
+	FrameData m_Frames[FRAME_OVERLAP];
 	GPUSceneData _sceneParameters;
 	AllocatedBuffer _sceneParameterBuffer;
 
-	std::vector<VkFramebuffer> _framebuffers;
+	std::vector<VkFramebuffer> m_FrameBuffers;
 
-	VkImageView _depthImageView;
-	AllocatedImage _depthImage;
 
-	VkFormat _depthFormat;
+	VkFormat m_depthFormat;
 
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
@@ -146,24 +153,16 @@ public:
 
 	VkPipeline meshPipeline;
 
-	std::vector<RenderObject> _renderables;
-	std::unordered_map<std::string, Material> _materials;
-	std::unordered_map<std::string, Mesh> _meshes;
-
 	UploadContext	_uploadContext;
 
-	std::unordered_map<std::string, Texture> _loadedTextures;
+	VmaAllocator m_Allocator;
 
-	VmaAllocator _allocator;
-
-	DeletionQueue _mainDeletionQueue;
+	DeletionQueue m_MainDeletionQueue;
 
 	int _selectedShader{ 0 };
 
 	bool _isInitialized{ false };
 	int _frameNumber {0};
-
-	VkExtent2D _windowExtent{ 1700 , 900 };
 
 	struct SDL_Window* _window{ nullptr };
 
@@ -183,17 +182,11 @@ public:
 
 	bool load_shader_module_with_log(const char* filePath, VkShaderModule* outShaderModule, ShaderType shaderType);
 
-	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
-
-	Material* get_material(const std::string& name);
-
-	Mesh* get_mesh(const std::string& name);
-
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 
 	FrameData& get_current_frame();
 
-	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	AllocatedBufferUntyped CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlag);
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
@@ -201,20 +194,22 @@ public:
 
 	bool LoadPrefab(const char* path, glm::mat4 root);
 
+	void RefreshRenderBounds(MeshObject* object);
+
 	inline VkDevice device() const;
 	inline vkutil::DescriptorAllocator* descriptorAllocator() const;
 	inline vkutil::DescriptorLayoutCache* descriptorLayoutCache() const;
 	inline vkutil::MaterialSystem* materialSystem() const;
-	inline VkRenderPass renderPass(PassType t) const;
+	inline VkRenderPass GetRenderPass(PassType t) const;
 public:
 	static std::string ShaderPath(std::string_view path);
 	static std::string AssetPath(std::string_view path);
 private:
-	void init_vulkan();
+	void InitVulkan();
 
-	void init_swapchain();
+	void InitSwapchain();
 
-	void init_commands();
+	void InitCommands();
 
 	void InitForwardRenderpass();
 
@@ -222,7 +217,7 @@ private:
 
 	void InitShadowRenderpass();
 
-	void init_framebuffers();
+	void InitFramebuffers();
 
 	void init_sync_structures();
 
@@ -236,17 +231,46 @@ private:
 
 	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader, VkPipelineLayout layout, VertexInputDescription* pInputDesc);
 
-	void load_meshes();
+	void LoadMeshes();
 
-	void load_images();
+	void LoadImages();
 
-	void upload_mesh(Mesh& mesh);
+	bool LoadImageToCache(const char* name, const char* path);
+
+	void UploadMesh(Mesh& mesh);
 
 	size_t pad_uniform_buffer_size(size_t originalSize);
+
+	Mesh* GetMesh(const std::string& name);
+
+	bool LoadImageToCache(const std::string& name, const std::string& path);
 private:
 	void clear_vulkan();
 
 	VkDevice m_Device;
+
+	vkutil::VulkanProfiler* m_Profiler;
+
+	VkExtent2D m_WindowExtent{ 1700 , 900 };
+	VkExtent2D m_ShadowExtent{ 1024 * 4,1024 * 4 };
+	uint32_t m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
+
+	VkFormat m_RenderFormat;
+	AllocatedImage m_RawRenderImage;
+
+	AllocatedImage m_DepthImage;
+
+	AllocatedImage m_DepthPyramidImage;
+	VkImageView m_DepthPyramidMips[16] = {};
+
+	AllocatedImage m_ShadowImage;
+
+	VkSampler m_SmoothSampler;
+	VkSampler m_DepthSampler;
+	VkSampler m_ShadowSampler;
+
+	VkFramebuffer m_ForwardFramebuffer;
+	VkFramebuffer m_ShadowFramebuffer;
 
 	ShaderCache m_ShaderCache;
 
@@ -255,6 +279,12 @@ private:
 	vkutil::DescriptorAllocator* m_DescriptorAllocator;
 	vkutil::DescriptorLayoutCache* m_DescritptorLayoutCache;
 	vkutil::MaterialSystem* m_MaterialSystem;
+
+	std::unordered_map<std::string, Mesh> m_Meshes;
+	std::unordered_map<std::string, assets::PrefabInfo*> m_PrefabCache;
+	std::unordered_map<std::string, Texture> m_LoadedTextures;
+
+	RenderScene m_RenderScene;
 };
 
 inline VkDevice VulkanEngine::device() const
@@ -277,7 +307,7 @@ inline vkutil::MaterialSystem* VulkanEngine::materialSystem() const
 	return m_MaterialSystem;
 }
 
-inline VkRenderPass VulkanEngine::renderPass(PassType t) const
+inline VkRenderPass VulkanEngine::GetRenderPass(PassType t) const
 {
 	return m_Passes[t];
 }

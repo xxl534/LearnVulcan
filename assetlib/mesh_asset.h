@@ -22,7 +22,7 @@ namespace assets {
 	enum class VertexFormat : uint32_t {
 		Unknown = 0,
 		PNCV_F32,	//everything at 32 bits
-		P32N8C8V16,	//position at 32 bits, normal at 8 bits, color at 8 bits, uvs at 16bits float
+		P32N8C8V16,	//position at 32 bits, octNormal at 8 bits, color at 8 bits, uvs at 16bits float
 		Count,
 	};
 
@@ -45,9 +45,9 @@ namespace assets {
 		std::string originalFile;
 	};
 
-	MeshInfo read_mesh_info(AssetFile* file);
+	MeshInfo ReadMeshInfo(AssetFile* file);
 
-	void unpack_mesh(MeshInfo* info, const char* sourceBuffer, size_t sourceSize, char* vertexBuffer, char* indexBuffer);
+	void UnpackMesh(MeshInfo* info, const char* sourceBuffer, size_t sourceSize, char* vertexBuffer, char* indexBuffer);
 
 	AssetFile pack_mesh(MeshInfo* info, char* vertexData, char* indexData);
 
