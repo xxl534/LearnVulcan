@@ -116,7 +116,7 @@ void VulkanEngine::cleanup()
 	if (_isInitialized) {
 		for (int i = 0; i < FRAME_OVERLAP; ++i)
 		{
-			vkWaitForFences(m_Device, 1, &m_Frames[i]._renderFence, true, TIMEOUT_1SEC);
+			vkWaitForFences(m_Device, 1, &m_Frames[i].renderFence, true, TIMEOUT_1SEC);
 		}
 		
 		m_MainDeletionQueue.flush();
@@ -141,11 +141,11 @@ void VulkanEngine::draw()
 {
 	ImGui::Render();
 	FrameData& currentFrame = get_current_frame();
-	VK_CHECK(vkWaitForFences(m_Device, 1, &currentFrame._renderFence, true, TIMEOUT_1SEC));
-	VK_CHECK(vkResetFences(m_Device, 1, &currentFrame._renderFence));
+	VK_CHECK(vkWaitForFences(m_Device, 1, &currentFrame.renderFence, true, TIMEOUT_1SEC));
+	VK_CHECK(vkResetFences(m_Device, 1, &currentFrame.renderFence));
 
 	uint32_t swapchainImageIndex;
-	VK_CHECK(vkAcquireNextImageKHR(m_Device, m_SwapChain, TIMEOUT_1SEC, currentFrame._presentSemaphore, nullptr, &swapchainImageIndex));
+	VK_CHECK(vkAcquireNextImageKHR(m_Device, m_SwapChain, TIMEOUT_1SEC, currentFrame.presentSemaphore, nullptr, &swapchainImageIndex));
 
 	VK_CHECK(vkResetCommandBuffer(currentFrame.mainCommandBuffer, 0));
 
@@ -194,13 +194,13 @@ void VulkanEngine::draw()
 	VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	submit.pWaitDstStageMask = &waitStage;
 	submit.waitSemaphoreCount = 1;
-	submit.pWaitSemaphores = &currentFrame._presentSemaphore;
+	submit.pWaitSemaphores = &currentFrame.presentSemaphore;
 	submit.signalSemaphoreCount = 1;
-	submit.pSignalSemaphores = &currentFrame._renderSemaphore;
+	submit.pSignalSemaphores = &currentFrame.renderSemaphore;
 	submit.commandBufferCount = 1;
 	submit.pCommandBuffers = &cmd;
 
-	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, currentFrame._renderFence));
+	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, currentFrame.renderFence));
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -208,7 +208,7 @@ void VulkanEngine::draw()
 
 	presentInfo.pSwapchains = &m_SwapChain;
 	presentInfo.swapchainCount = 1;
-	presentInfo.pWaitSemaphores = &currentFrame._renderSemaphore;
+	presentInfo.pWaitSemaphores = &currentFrame.renderSemaphore;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pImageIndices = &swapchainImageIndex;
 	
@@ -722,9 +722,9 @@ void VulkanEngine::InitCommands()
 	
 	VkCommandPoolCreateInfo uploadCommandPoolInfo = vkinit::command_pool_create_info(m_GraphicsQueueFamily);
 
-	VK_CHECK(vkCreateCommandPool(m_Device, &uploadCommandPoolInfo, nullptr, &_uploadContext.commandPool));
+	VK_CHECK(vkCreateCommandPool(m_Device, &uploadCommandPoolInfo, nullptr, &m_UploadContext.commandPool));
 	m_MainDeletionQueue.push_function([=]() {
-		vkDestroyCommandPool(m_Device, _uploadContext.commandPool, nullptr);
+		vkDestroyCommandPool(m_Device, m_UploadContext.commandPool, nullptr);
 		});
 }
 
@@ -941,35 +941,31 @@ void VulkanEngine::InitFramebuffers()
 void VulkanEngine::init_sync_structures()
 {
 	VkFenceCreateInfo fenceCreateInfo = vkinit::fence_create_info();
+	VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphore_create_info();
 
 	for (int i = 0; i < FRAME_OVERLAP; ++i)
 	{
-		VK_CHECK(vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_Frames[i]._renderFence));
+		VK_CHECK(vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_Frames[i].renderFence));
 		m_MainDeletionQueue.push_function([=]() {
-			vkDestroyFence(m_Device, m_Frames[i]._renderFence, nullptr);
+			vkDestroyFence(m_Device, m_Frames[i].renderFence, nullptr);
 			});
 
-		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		semaphoreCreateInfo.pNext = nullptr;
-		semaphoreCreateInfo.flags = 0;
-
-		VK_CHECK(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_Frames[i]._presentSemaphore));
+		VK_CHECK(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_Frames[i].presentSemaphore));
 		m_MainDeletionQueue.push_function([=]() {
-			vkDestroySemaphore(m_Device, m_Frames[i]._presentSemaphore, nullptr);
+			vkDestroySemaphore(m_Device, m_Frames[i].presentSemaphore, nullptr);
 			});
 
-		VK_CHECK(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_Frames[i]._renderSemaphore));
+		VK_CHECK(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_Frames[i].renderSemaphore));
 		m_MainDeletionQueue.push_function([=]() {
-			vkDestroySemaphore(m_Device, m_Frames[i]._renderSemaphore, nullptr);
+			vkDestroySemaphore(m_Device, m_Frames[i].renderSemaphore, nullptr);
 			});
 	}
 
 	VkFenceCreateInfo uploadFenceCreateInfo = vkinit::fence_create_info();
-	VK_CHECK(vkCreateFence(m_Device, &uploadFenceCreateInfo, nullptr, &_uploadContext.uploadFence));
-	vkResetFences(m_Device, 1, &_uploadContext.uploadFence);
+	VK_CHECK(vkCreateFence(m_Device, &uploadFenceCreateInfo, nullptr, &m_UploadContext.uploadFence));
+	vkResetFences(m_Device, 1, &m_UploadContext.uploadFence);
 	m_MainDeletionQueue.push_function([=] {
-		vkDestroyFence(m_Device, _uploadContext.uploadFence, nullptr);
+		vkDestroyFence(m_Device, m_UploadContext.uploadFence, nullptr);
 		});
 
 }
@@ -1312,7 +1308,7 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 
 	VkCommandBuffer cmd;
 
-	VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_uploadContext.commandPool, 1);
+	VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(m_UploadContext.commandPool, 1);
 	VK_CHECK(vkAllocateCommandBuffers(m_Device, &cmdAllocInfo, &cmd));
 
 	VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -1324,12 +1320,12 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 
 	VkSubmitInfo submit = vkinit::submit_info(&cmd);
 
-	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, _uploadContext.uploadFence));
+	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, m_UploadContext.uploadFence));
 
-	vkWaitForFences(m_Device, 1, &_uploadContext.uploadFence, true, 9999999999);
-	vkResetFences(m_Device, 1, &_uploadContext.uploadFence);
+	vkWaitForFences(m_Device, 1, &m_UploadContext.uploadFence, true, 9999999999);
+	vkResetFences(m_Device, 1, &m_UploadContext.uploadFence);
 
-	vkResetCommandPool(m_Device, _uploadContext.commandPool, 0);
+	vkResetCommandPool(m_Device, m_UploadContext.commandPool, 0);
 }
 
 ShaderModule* VulkanEngine::GetShaderModule(const std::string& path)

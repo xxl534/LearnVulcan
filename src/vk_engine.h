@@ -52,8 +52,8 @@ struct GPUObjectData {
 };
 
 struct FrameData {
-	VkSemaphore _presentSemaphore, _renderSemaphore;
-	VkFence _renderFence;
+	VkSemaphore presentSemaphore, renderSemaphore;
+	VkFence renderFence;
 
 	VkCommandPool commandPool;
 	VkCommandBuffer mainCommandBuffer;
@@ -153,7 +153,7 @@ public:
 
 	VkPipeline meshPipeline;
 
-	UploadContext	_uploadContext;
+	UploadContext	m_UploadContext;
 
 	VmaAllocator m_Allocator;
 

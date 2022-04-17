@@ -227,6 +227,15 @@ VkFenceCreateInfo vkinit::fence_create_info()
 	return fenceCreateInfo;
 }
 
+VkSemaphoreCreateInfo vkinit::semaphore_create_info()
+{
+	VkSemaphoreCreateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	info.pNext = nullptr;
+	info.flags = 0;
+	return info;
+}
+
 VkCommandBufferBeginInfo vkinit::command_buffer_begin_info(VkCommandBufferUsageFlags flags)
 {
 	VkCommandBufferBeginInfo info{};
