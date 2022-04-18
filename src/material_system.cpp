@@ -2,6 +2,7 @@
 #include <vk_shader.h>
 #include <vk_engine.h>
 #include <vk_initializers.h>
+#include "vk_pipeline_builder.h"
 void vkutil::MaterialSystem::Init(VulkanEngine* owner)
 {
 	m_Engine = owner;
@@ -105,7 +106,7 @@ vkutil::ShaderPass* vkutil::MaterialSystem::BuildShader(VkRenderPass renderPass,
 
 	PipelineBuilder pipBuilder = builder;
 	pipBuilder.SetShaders(effect);
-	pPass->pipeline = pipBuilder.buildPipeline(m_Engine->device(), renderPass);
+	pPass->pipeline = pipBuilder.BuildPipeline(m_Engine->device(), renderPass);
 
 	return pPass;
 }
@@ -193,7 +194,7 @@ void vkutil::MaterialSystem::FillBuilders()
 	}
 }
 
-VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass)
+VkPipeline PipelineBuilder::BuildPipeline(VkDevice device, VkRenderPass pass)
 {
 	vertexInputInfo = vkinit::vertex_input_state_create_info();
 	vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.attributes.data();
@@ -270,6 +271,7 @@ void PipelineBuilder::ClearVertexInput()
 	vertexInputInfo.vertexBindingDescriptionCount = 0;
 }
 
+
 void PipelineBuilder::SetShaders(ShaderEffect* effect)
 {
 	shaderStages.clear();
@@ -278,7 +280,7 @@ void PipelineBuilder::SetShaders(ShaderEffect* effect)
 	pipelineLayout = effect->builtLayout;
 }
 
-VkPipeline ComputePipelineBuilder::build_pipeline(VkDevice device)
+VkPipeline ComputePipelineBuilder::BuildPipeline(VkDevice device)
 {
 	VkComputePipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;

@@ -129,48 +129,14 @@ enum PassType {
 class VulkanEngine {
 public:
 
-	VkPhysicalDeviceProperties m_GpuPropertices;
-	VkInstance m_Instance;
-	VkDebugUtilsMessengerEXT _debug_messenger;
-	VkPhysicalDevice m_ChosenGPU;
-	VkSurfaceKHR _surface;
-
-	VkSwapchainKHR m_SwapChain;
-	VkFormat m_SwapchainImageFormat;
-	std::vector<VkImage> m_SwapchainImages;
-	std::vector<VkImageView> m_SwapchainImageViews;
-
-	VkQueue _graphicsQueue;
-	uint32_t m_GraphicsQueueFamily;
-
-	FrameData m_Frames[FRAME_OVERLAP];
 	GPUSceneData _sceneParameters;
-	AllocatedBuffer m_SceneParameterBuffer;
-
-	std::vector<VkFramebuffer> m_FrameBuffers;
-
-
-	VkFormat m_depthFormat;
 
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
 	VkDescriptorSetLayout m_SingleTextureSetLayout;
 	VkDescriptorPool _descriptorPool;
 
-	VkPipeline meshPipeline;
-
-	UploadContext	m_UploadContext;
-
-	VmaAllocator m_Allocator;
-
-	DeletionQueue m_MainDeletionQueue;
-
-	int _selectedShader{ 0 };
-
 	bool _isInitialized{ false };
-	int _frameNumber {0};
-
-	struct SDL_Window* _window{ nullptr };
 
 	//initializes everything in the engine
 	void init();
@@ -184,19 +150,15 @@ public:
 	//run main loop
 	void run();
 
-	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
-
-	bool load_shader_module_with_log(const char* filePath, VkShaderModule* outShaderModule, ShaderType shaderType);
-
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 
-	FrameData& get_current_frame();
+	FrameData& GetCurrentFrame();
 
 	AllocatedBufferUntyped CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlag = 0);
 
 	void DestroyBuffer(AllocatedBufferUntyped buffer);
 
-	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+	void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 	ShaderModule* GetShaderModule(const std::string& path);
 
@@ -231,13 +193,13 @@ private:
 
 	void InitDescriptors();
 
-	void init_pipelines();
+	void InitPipelines();
 
-	void init_scene();
+	void InitScene();
 
-	void init_imgui();
+	void InitImgui();
 
-	VkPipeline build_pipeline(const char* vertexShader, const char* fragmentShader, VkPipelineLayout layout, VertexInputDescription* pInputDesc);
+	bool LoadComputeShader(const char* shaderPath, VkPipeline& pipeline, VkPipelineLayout& layout);
 
 	void LoadMeshes();
 
@@ -253,21 +215,42 @@ private:
 
 	bool LoadImageToCache(const std::string& name, const std::string& path);
 private:
-	void clear_vulkan();
+	void ClearVulkan();
 
+	struct SDL_Window* m_Window{ nullptr };
+	VkInstance m_Instance;
+	VkPhysicalDevice m_ChosenGPU;
+	VkDebugUtilsMessengerEXT m_DebugMessenger;
+	VkSurfaceKHR m_Surface;
 	VkDevice m_Device;
+	VkPhysicalDeviceProperties m_GpuPropertices;
+
+	VmaAllocator m_Allocator;
+	DeletionQueue m_MainDeletionQueue;
 
 	vkutil::VulkanProfiler* m_Profiler;
 
+	VkQueue m_GraphicsQueue;
+	uint32_t m_GraphicsQueueFamily;
+
+	FrameData m_Frames[FRAME_OVERLAP];
+	std::vector<VkFramebuffer> m_FrameBuffers;
+	int m_FrameNumber{ 0 };
+
+	VkSwapchainKHR m_SwapChain;
+	VkFormat m_SwapchainImageFormat;
+	std::vector<VkImage> m_SwapchainImages;
+	std::vector<VkImageView> m_SwapchainImageViews;	
+
 	VkExtent2D m_WindowExtent{ 1700 , 900 };
 	VkExtent2D m_ShadowExtent{ 1024 * 4,1024 * 4 };
+	VkFormat m_depthFormat;
 	uint32_t m_DepthPyramidWidth, m_DepthPyramidHeight, m_DepthPyramidLevels;
 
 	VkFormat m_RenderFormat;
 	AllocatedImage m_RawRenderImage;
 
 	AllocatedImage m_DepthImage;
-
 	AllocatedImage m_DepthPyramidImage;
 	VkImageView m_DepthPyramidMips[16] = {};
 
@@ -280,6 +263,20 @@ private:
 	VkFramebuffer m_ForwardFramebuffer;
 	VkFramebuffer m_ShadowFramebuffer;
 
+	UploadContext m_UploadContext;
+
+	VkPipeline m_CullPipeline;
+	VkPipelineLayout m_CullLayout;
+
+	VkPipeline m_DepthReducePipeline;
+	VkPipelineLayout m_DepthReduceLayout;
+
+	VkPipeline m_SparseUploadPipeline;
+	VkPipelineLayout m_SparseUploadLayout;
+
+	VkPipeline m_BlitPipeline;
+	VkPipelineLayout m_BlitLayout;
+	
 	ShaderCache m_ShaderCache;
 
 	std::array<VkRenderPass, 3> m_Passes;
@@ -293,6 +290,7 @@ private:
 	std::unordered_map<std::string, Texture> m_LoadedTextures;
 
 	RenderScene m_RenderScene;
+	AllocatedBufferUntyped m_SceneParameterBuffer;
 };
 
 inline VkDevice VulkanEngine::device() const

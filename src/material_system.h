@@ -24,7 +24,7 @@ public :
 	VkPipelineMultisampleStateCreateInfo multisampling;
 	VkPipelineLayout pipelineLayout;
 	VkPipelineDepthStencilStateCreateInfo depthStencil;
-	VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
+	VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
 	void ClearVertexInput();
 	void SetShaders(ShaderEffect* effect);
 
@@ -49,7 +49,7 @@ class ComputePipelineBuilder {
 public:
 	VkPipelineShaderStageCreateInfo shaderStage;
 	VkPipelineLayout pipelineLayout;
-	VkPipeline build_pipeline(VkDevice device);
+	VkPipeline BuildPipeline(VkDevice device);
 };
 
 namespace vkutil

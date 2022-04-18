@@ -186,7 +186,7 @@ void RenderScene::MergeMeshes(VulkanEngine* engine)
     mergedVertexBuffer = engine->CreateBuffer(totalVertices * sizeof(Vertex), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     mergedIndexBuffer = engine->CreateBuffer(totalIndices * sizeof(uint32_t), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    engine->immediate_submit([&](VkCommandBuffer cmd)
+    engine->ImmediateSubmit([&](VkCommandBuffer cmd)
         {
             for (auto& mesh : meshes)
             {

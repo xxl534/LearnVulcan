@@ -42,7 +42,7 @@ bool vkutil::LoadImageFromFile(VulkanEngine& engine, const char* file, Allocated
 
 	vmaCreateImage(engine.m_Allocator, &imageInfo, &imgAllocInfo, &newImage.image, &newImage.allocation, nullptr);
 
-	engine.immediate_submit([&](VkCommandBuffer cmd) {
+	engine.ImmediateSubmit([&](VkCommandBuffer cmd) {
 		VkImageSubresourceRange range;
 		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		range.baseMipLevel = 0;
