@@ -14,6 +14,7 @@
 #include <vk_shader.h>
 #include <vk_scene.h>
 #include <material_system.h>
+#include <vk_pushbuffer.h>
 
 #include <glm/glm.hpp>
 
@@ -55,14 +56,19 @@ struct FrameData {
 	VkSemaphore presentSemaphore, renderSemaphore;
 	VkFence renderFence;
 
+	DeletionQueue frameDeletionQueue;
+
 	VkCommandPool commandPool;
 	VkCommandBuffer mainCommandBuffer;
 
-	AllocatedBuffer cameraBuffer;
-	VkDescriptorSet globalDescriptor;
+	vkutil::PushBuffer dynamicData;
 
-	AllocatedBuffer objectBuffer;
-	VkDescriptorSet objectDescriptor;
+	AllocatedBufferUntyped debugOutputBuffer;
+
+	vkutil::DescriptorAllocator* dynamicDescriptorAllocator;
+
+	std::vector<uint32_t> debugDataOffsets;
+	std::vector<std::string> debugDataNames;
 };
 
 struct PipelineConstants {
@@ -139,7 +145,7 @@ public:
 
 	FrameData m_Frames[FRAME_OVERLAP];
 	GPUSceneData _sceneParameters;
-	AllocatedBuffer _sceneParameterBuffer;
+	AllocatedBuffer m_SceneParameterBuffer;
 
 	std::vector<VkFramebuffer> m_FrameBuffers;
 
@@ -148,7 +154,7 @@ public:
 
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
-	VkDescriptorSetLayout _singleTextureSetLayout;
+	VkDescriptorSetLayout m_SingleTextureSetLayout;
 	VkDescriptorPool _descriptorPool;
 
 	VkPipeline meshPipeline;
@@ -186,7 +192,9 @@ public:
 
 	FrameData& get_current_frame();
 
-	AllocatedBufferUntyped CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlag);
+	AllocatedBufferUntyped CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlag = 0);
+
+	void DestroyBuffer(AllocatedBufferUntyped buffer);
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
@@ -219,9 +227,9 @@ private:
 
 	void InitFramebuffers();
 
-	void init_sync_structures();
+	void InitSyncStructures();
 
-	void init_descriptors();
+	void InitDescriptors();
 
 	void init_pipelines();
 

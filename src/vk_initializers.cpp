@@ -202,6 +202,19 @@ VkDescriptorSetLayoutBinding vkinit::descriptorset_layout_binding(VkDescriptorTy
 	return bind;
 }
 
+VkDescriptorSetLayoutCreateInfo vkinit::descriptorset_layout_create_info(const VkDescriptorSetLayoutBinding* pBindings, uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags)
+{
+	VkDescriptorSetLayoutCreateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	info.pNext = nullptr;
+
+	info.bindingCount = bindingCount;
+	info.flags = flags;
+	info.pBindings = pBindings;
+
+	return info;
+}
+
 VkWriteDescriptorSet vkinit::write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding)
 {
 	VkWriteDescriptorSet write{};

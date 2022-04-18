@@ -36,6 +36,8 @@ namespace vkinit {
 
 	VkDescriptorSetLayoutBinding descriptorset_layout_binding(VkDescriptorType type, VkShaderStageFlags stageFlag, uint32_t binding);
 
+	VkDescriptorSetLayoutCreateInfo descriptorset_layout_create_info(const VkDescriptorSetLayoutBinding* pBindings, uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags = 0);
+
 	VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding);
 
 	VkFenceCreateInfo fence_create_info();
