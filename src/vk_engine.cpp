@@ -22,7 +22,6 @@
 #include <material_asset.h>
 //bootstrap library
 #include "VkBootstrap.h"
-#include "vk_pipeline_builder.h"
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -54,7 +53,7 @@ const char* ShaderTypeNames[3] = {
 
 #define TIMEOUT_1SEC 1000000000
 
-void VulkanEngine::init()
+void VulkanEngine::Init()
 {
 	ZoneScopedNC("Engine Init");
 
@@ -108,10 +107,15 @@ void VulkanEngine::init()
 
 	InitImgui();
 
+
+	m_Camera = {};
+
+	m_MainLight.lightPosition = { 0,0,0 };
+
 	//everything went fine
 	_isInitialized = true;
 }
-void VulkanEngine::cleanup()
+void VulkanEngine::Cleanup()
 {	
 	if (_isInitialized) {
 		for (int i = 0; i < FRAME_OVERLAP; ++i)
@@ -123,11 +127,11 @@ void VulkanEngine::cleanup()
 
 		m_MaterialSystem->Cleanup();
 		//descriptor
-		m_DescriptorAllocator->cleanup();
+		m_DescriptorAllocator->Cleanup();
 		delete m_DescriptorAllocator;
 		m_DescriptorAllocator = nullptr;
 
-		m_DescritptorLayoutCache->cleanup();
+		m_DescritptorLayoutCache->Cleanup();
 		delete m_DescritptorLayoutCache;
 		m_DescritptorLayoutCache = nullptr;
 
@@ -139,7 +143,9 @@ void VulkanEngine::cleanup()
 
 void VulkanEngine::draw()
 {
+	ZoneScopedNC("Engine Draw");
 	ImGui::Render();
+
 	FrameData& currentFrame = GetCurrentFrame();
 	VK_CHECK(vkWaitForFences(m_Device, 1, &currentFrame.renderFence, true, TIMEOUT_1SEC));
 	VK_CHECK(vkResetFences(m_Device, 1, &currentFrame.renderFence));
@@ -935,7 +941,7 @@ void VulkanEngine::InitDescriptors()
 	m_DescriptorAllocator->init(m_Device);
 
 	m_MainDeletionQueue.push_function([=] {
-		m_DescriptorAllocator->cleanup();
+		m_DescriptorAllocator->Cleanup();
 		delete m_DescriptorAllocator;
 		m_DescriptorAllocator = nullptr;
 		});
@@ -943,7 +949,7 @@ void VulkanEngine::InitDescriptors()
 	m_DescritptorLayoutCache = new vkutil::DescriptorLayoutCache();
 	m_DescritptorLayoutCache->init(m_Device);
 	m_MainDeletionQueue.push_function([=] {
-		m_DescritptorLayoutCache->cleanup();
+		m_DescritptorLayoutCache->Cleanup();
 		delete m_DescritptorLayoutCache;
 		m_DescritptorLayoutCache = nullptr;
 		});
@@ -969,7 +975,7 @@ void VulkanEngine::InitDescriptors()
 		m_Frames[i].dynamicData.Init(m_Allocator, dynamicDataBuffer, m_GpuPropertices.limits.minUniformBufferOffsetAlignment);
 		
 		m_MainDeletionQueue.push_function([=] {
-			m_Frames[i].dynamicDescriptorAllocator->cleanup();
+			m_Frames[i].dynamicDescriptorAllocator->Cleanup();
 			delete m_Frames[i].dynamicDescriptorAllocator;
 			m_Frames[i].dynamicDescriptorAllocator = nullptr;
 			DestroyBuffer(dynamicDataBuffer);
@@ -1043,6 +1049,7 @@ bool VulkanEngine::LoadComputeShader(const char* shaderPath, VkPipeline& pipelin
 
 void VulkanEngine::InitScene()
 {
+	m_RenderScene.Init();
 	VkSamplerCreateInfo samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 	VkSampler blockySampler;
 	vkCreateSampler(m_Device, &samplerInfo, nullptr, &blockySampler);
@@ -1098,6 +1105,9 @@ void VulkanEngine::InitScene()
 			LoadPrefab(AssetPath("CITY/polycity.pfb").c_str(), cityMatrix);
 		}
 	}
+
+	m_RenderScene.BuildBatches();
+	m_RenderScene.MergeMeshes(this);
 }
 
 void VulkanEngine::InitImgui()
@@ -1188,8 +1198,6 @@ ShaderModule* VulkanEngine::GetShaderModule(const std::string& path)
 
 bool VulkanEngine::LoadPrefab(const char* path, glm::mat4 root)
 {
-	m_RenderScene.Init();
-
 	ZoneScopedNC("Load prefab", tracy::Color::Red);
 
 	assets::PrefabInfo* prefab;
@@ -1507,3 +1515,16 @@ void VulkanEngine::ClearVulkan()
 }
 
 
+glm::mat4 DirectionalLight::GetProjection()
+{
+	glm::mat4 projection = glm::orthoLH_ZO(-shadowExtent.x, shadowExtent.x, -shadowExtent.y, -shadowExtent.y, -shadowExtent.z, shadowExtent.z);
+	return projection;
+}
+
+glm::mat4 DirectionalLight::GetView()
+{
+	glm::vec3 camPos = lightPosition;
+	glm::vec3 camFwd = lightDirection;
+	glm::mat4 view = glm::lookAt(camPos, camPos + camFwd, glm::vec3(1, 0, 0));
+	return view;
+}

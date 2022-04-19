@@ -88,7 +88,7 @@ namespace vkutil
 		this->device = device;
 	}
 
-	void DescriptorAllocator::cleanup()
+	void DescriptorAllocator::Cleanup()
 	{
 		for (auto pool : m_FreePools)
 		{
@@ -119,7 +119,7 @@ namespace vkutil
 		m_Device = device;
 	}
 
-	void DescriptorLayoutCache::cleanup()
+	void DescriptorLayoutCache::Cleanup()
 	{
 		for (auto pair : m_LayoutCache)
 		{

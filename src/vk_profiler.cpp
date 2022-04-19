@@ -99,7 +99,7 @@ namespace vkutil {
 	}
 
 
-	void VulkanProfiler::cleanup()
+	void VulkanProfiler::Cleanup()
 	{
 		for (int i = 0; i < QUERY_FRAME_OVERLAP; i++)
 		{

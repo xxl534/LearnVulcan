@@ -15,6 +15,7 @@
 #include <vk_scene.h>
 #include <material_system.h>
 #include <vk_pushbuffer.h>
+#include <player_camera.h>
 
 #include <glm/glm.hpp>
 
@@ -26,6 +27,15 @@ namespace vkutil
 {
 	class VulkanProfiler;
 }
+
+struct DirectionalLight {
+	glm::vec3 lightPosition;
+	glm::vec3 lightDirection;
+	glm::vec3 shadowExtent;
+	glm::mat4 GetProjection();
+	glm::mat4 GetView();
+};
+
 struct UploadContext {
 	VkFence uploadFence;
 	VkCommandPool commandPool;
@@ -139,10 +149,10 @@ public:
 	bool _isInitialized{ false };
 
 	//initializes everything in the engine
-	void init();
+	void Init();
 
 	//shuts down the engine
-	void cleanup();
+	void Cleanup();
 
 	//draw loop
 	void draw();
@@ -291,6 +301,9 @@ private:
 
 	RenderScene m_RenderScene;
 	AllocatedBufferUntyped m_SceneParameterBuffer;
+
+	PlayerCamera m_Camera;
+	DirectionalLight m_MainLight;
 };
 
 inline VkDevice VulkanEngine::device() const

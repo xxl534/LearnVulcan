@@ -30,7 +30,7 @@ namespace vkutil
 
 		void init(VkDevice device);
 
-		void cleanup();
+		void Cleanup();
 
 		VkDevice device;
 	private:
@@ -50,7 +50,7 @@ namespace vkutil
 	public:
 		void init(VkDevice device);
 
-		void cleanup();
+		void Cleanup();
 
 		VkDescriptorSetLayout CreateDescriptorLayout(VkDescriptorSetLayoutCreateInfo* info);
 

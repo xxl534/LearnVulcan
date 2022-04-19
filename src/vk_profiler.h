@@ -51,7 +51,7 @@ namespace vkutil {
 
 		void grab_queries(VkCommandBuffer cmd);
 
-		void cleanup();
+		void Cleanup();
 
 		double get_stat(const std::string& name);
 		VkQueryPool get_timer_pool();
