@@ -25,7 +25,7 @@ namespace vkutil
 		return descriptorPool;
 	}
 
-	void DescriptorAllocator::reset_pools()
+	void DescriptorAllocator::ResetPools()
 	{
 		for (auto pool : m_UsedPools)
 		{

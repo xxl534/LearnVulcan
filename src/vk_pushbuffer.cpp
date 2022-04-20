@@ -31,7 +31,7 @@ void vkutil::PushBuffer::PushEnd()
 	vmaUnmapMemory(*m_Allocator, source.allocation);
 }
 
-void vkutil::PushBuffer::reset()
+void vkutil::PushBuffer::Reset()
 {
 	currentOffset = 0;
 }

@@ -24,7 +24,7 @@ namespace vkutil
 			};
 		};
 
-		void reset_pools();
+		void ResetPools();
 
 		bool allocate(VkDescriptorSet* set, VkDescriptorSetLayout layout);
 

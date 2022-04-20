@@ -26,9 +26,12 @@
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
-#include "vk_texture.h"
+#include <vk_texture.h>
 
 #include <glm/gtx/transform.hpp>
+
+
+#include <fmt_lib/os.h>
 
 
 constexpr bool bUseValidationLayers = true;
@@ -147,11 +150,63 @@ void VulkanEngine::draw()
 	ImGui::Render();
 
 	FrameData& currentFrame = GetCurrentFrame();
-	VK_CHECK(vkWaitForFences(m_Device, 1, &currentFrame.renderFence, true, TIMEOUT_1SEC));
-	VK_CHECK(vkResetFences(m_Device, 1, &currentFrame.renderFence));
+	{
+		ZoneScopedN("Fence wait");
+		VK_CHECK(vkWaitForFences(m_Device, 1, &currentFrame.renderFence, true, TIMEOUT_1SEC));
+		VK_CHECK(vkResetFences(m_Device, 1, &currentFrame.renderFence));
+
+		currentFrame.dynamicData.Reset();
+
+		m_RenderScene.BuildBatches();
+
+		void* data;
+		vmaMapMemory(m_Allocator, currentFrame.debugOutputBuffer.allocation, &data);
+		for (int i = 1; i < currentFrame.debugDataNames.size(); ++i)
+		{
+			uint32_t begin = currentFrame.debugDataOffsets[i - 1];
+			uint32_t end = currentFrame.debugDataOffsets[i];
+
+			auto name = currentFrame.debugDataNames[i];
+			if (name.compare("Cull Indirect Output") == 0)
+			{
+				void* buffer = malloc(end - begin);
+				memcpy(buffer, (uint8_t*)data + begin, end - begin);
+
+				GPUIndirectObject* objects = (GPUIndirectObject*)buffer;
+				int objectCount = (end - begin) / sizeof(GPUIndirectObject);
+
+				std::string filename = fmt::format("{}_CULLDATA_{}.text", m_FrameNumber, i);
+				auto out = fmt::output_file(filename);
+
+				for (int o = 0; o < objectCount; ++o)
+				{
+					out.print(" Draw:{}-------------\n", o);
+					out.print(" Object Graphics Count:{}\n", m_RenderScene.m_Passes[MeshpassType::Forward].indirectBatches[o].count);
+					out.print(" Visible Count:{}\n", objects[o].command.instanceCount);
+					out.print(" First: {}\n", objects[o].command.firstInstance);
+					out.print(" Indices: {}\n", objects[o].command.indexCount);
+				}
+
+				free(buffer);
+			}
+		}
+		vmaUnmapMemory(m_Allocator, currentFrame.debugOutputBuffer.allocation);
+		currentFrame.debugDataNames.clear();
+		currentFrame.debugDataOffsets.clear();
+
+		currentFrame.debugDataNames.push_back("");
+		currentFrame.debugDataOffsets.push_back(0);
+	}
+	currentFrame.frameDeletionQueue.flush();
+	currentFrame.dynamicDescriptorAllocator->ResetPools();
+
 
 	uint32_t swapchainImageIndex;
-	VK_CHECK(vkAcquireNextImageKHR(m_Device, m_SwapChain, TIMEOUT_1SEC, currentFrame.presentSemaphore, nullptr, &swapchainImageIndex));
+	{
+		ZoneScopedN("Aquire Image");
+		VK_CHECK(vkAcquireNextImageKHR(m_Device, m_SwapChain, TIMEOUT_1SEC, currentFrame.presentSemaphore, nullptr, &swapchainImageIndex));
+	}
+	
 
 	VK_CHECK(vkResetCommandBuffer(currentFrame.mainCommandBuffer, 0));
 

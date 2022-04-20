@@ -12,7 +12,7 @@ namespace vkutil {
 
 		void PushBegin();
 		void PushEnd();
-		void reset();
+		void Reset();
 
 		uint32_t pad_uniform_buffer_size(uint32_t originalSize);
 		AllocatedBufferUntyped source;
