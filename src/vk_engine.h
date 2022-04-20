@@ -224,6 +224,17 @@ private:
 	Mesh* GetMesh(const std::string& name);
 
 	bool LoadImageToCache(const std::string& name, const std::string& path);
+
+	void ReadyMeshDraw(VkCommandBuffer cmd);
+
+	void ReadyCullData(RenderScene::MeshPass& pass, VkCommandBuffer cmd);
+
+	void ReallocateBuffer(AllocatedBufferUntyped& buffer, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlags = 0);
+	
+	template<typename T>
+	T* MapBuffer(AllocatedBuffer<T>& buffer);
+
+	void UnmapBuffer(AllocatedBufferUntyped& buffer);
 private:
 	void ClearVulkan();
 
@@ -242,6 +253,7 @@ private:
 
 	VkQueue m_GraphicsQueue;
 	uint32_t m_GraphicsQueueFamily;
+	tracy::VkCtx* m_GraphicQueueContext;
 
 	FrameData m_Frames[FRAME_OVERLAP];
 	std::vector<VkFramebuffer> m_FrameBuffers;
@@ -304,6 +316,10 @@ private:
 
 	PlayerCamera m_Camera;
 	DirectionalLight m_MainLight;
+
+	std::vector<VkBufferMemoryBarrier> m_UploadBarriers;
+	std::vector<VkBufferMemoryBarrier> m_CullReadyBarriers;
+	std::vector<VkBufferMemoryBarrier> m_PostCullBarriers;
 };
 
 inline VkDevice VulkanEngine::device() const
@@ -329,4 +345,17 @@ inline vkutil::MaterialSystem* VulkanEngine::materialSystem() const
 inline VkRenderPass VulkanEngine::GetRenderPass(PassType t) const
 {
 	return m_Passes[t];
+}
+
+template<typename T>
+inline T* VulkanEngine::MapBuffer(AllocatedBuffer<T>& buffer)
+{
+	void* data;
+	vmaMapMemory(m_Allocator, buffer.allocation, &data);
+	return (T*)data;
+}
+
+void VulkanEngine::UnmapBuffer(AllocatedBufferUntyped& buffer)
+{
+	vmaUnmapMemory(m_Allocator, buffer.allocation);
 }

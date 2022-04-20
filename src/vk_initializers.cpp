@@ -321,3 +321,16 @@ VkFramebufferCreateInfo vkinit::framebuffer_create_info(VkRenderPass renderPass,
 	info.layers = 1;
 	return info;
 }
+
+VkBufferMemoryBarrier vkinit::buffer_barrier(VkBuffer buffer, uint32_t queue)
+{
+	VkBufferMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.pNext = nullptr;
+
+	barrier.buffer = buffer;
+	barrier.size = VK_WHOLE_SIZE;
+	barrier.srcQueueFamilyIndex = queue;
+	barrier.dstQueueFamilyIndex = queue;
+	return barrier;
+}

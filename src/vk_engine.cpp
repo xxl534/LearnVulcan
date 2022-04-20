@@ -17,6 +17,7 @@
 
 #include <cvar.h>
 #include <Tracy.hpp>
+#include <TracyVulkan.hpp>
 
 #include <prefab_asset.h>
 #include <material_asset.h>
@@ -212,18 +213,34 @@ void VulkanEngine::draw()
 
 	VkCommandBuffer cmd = currentFrame.mainCommandBuffer;
 
-	VkCommandBufferBeginInfo cmdBegineInfo = {};
-	cmdBegineInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmdBegineInfo.pNext = nullptr;
-
-	cmdBegineInfo.pInheritanceInfo = nullptr;
-	cmdBegineInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	VkCommandBufferBeginInfo cmdBegineInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBegineInfo));
 
 	VkClearValue clearValue;
-	float flash = abs(sin(m_FrameNumber / 120.f));
-	clearValue.color = { {0.0f, 0.0f, flash, 1.0f} };
+	clearValue.color = { {0.1f, 0.1f, 0.1f, 1.0f} };
+
+	m_Profiler->grab_queries(cmd);
+	{
+		m_PostCullBarriers.clear();
+		m_CullReadyBarriers.clear();
+
+		TracyVkZone(m_GraphicsQueue, currentFrame.mainCommandBuffer, "All Frame");
+
+		vkutil::VulkanScopeTimer timerAllFrame(cmd, m_Profiler, "All Frame");
+		{
+			vkutil::VulkanScopeTimer timerReadyFrame(cmd, m_Profiler, "Ready Frame");
+
+			ReadyMeshDraw(cmd);
+
+			ReadyCullData(*m_RenderScene.GetMeshPass(MeshpassType::Forward), cmd);
+			ReadyCullData(*m_RenderScene.GetMeshPass(MeshpassType::Transparency), cmd);
+			ReadyCullData(*m_RenderScene.GetMeshPass(MeshpassType::DirectionalShadow), cmd);
+
+			vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0, 0, nullptr, m_CullReadyBarriers.size(), m_CullReadyBarriers.data(), 0, nullptr);
+		}
+	}
 	VkClearValue depthClear;
 	depthClear.depthStencil.depth = 1.f;
 	VkClearValue clearValues[] = { clearValue, depthClear };
@@ -739,6 +756,8 @@ void VulkanEngine::InitCommands()
 			vkDestroyCommandPool(m_Device, m_Frames[i].commandPool, nullptr);
 			});
 	}
+
+	m_GraphicQueueContext = TracyVkContext(m_ChosenGPU, m_Device, m_GraphicsQueue, m_Frames[0].mainCommandBuffer);
 	
 	VkCommandPoolCreateInfo uploadCommandPoolInfo = vkinit::command_pool_create_info(m_GraphicsQueueFamily);
 
@@ -1558,6 +1577,15 @@ Mesh* VulkanEngine::GetMesh(const std::string& name)
 bool VulkanEngine::LoadImageToCache(const std::string& name, const std::string& path)
 {
 	return false;
+}
+
+void VulkanEngine::ReallocateBuffer(AllocatedBufferUntyped& buffer, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlags)
+{
+	AllocatedBufferUntyped newBUffer = CreateBuffer(allocSize, usage, memoryUsage, requiredFlags);
+	GetCurrentFrame().frameDeletionQueue.push_function([=]() {
+		vmaDestroyBuffer(m_Allocator, buffer.buffer, buffer.allocation);
+		});
+	buffer = newBUffer;
 }
 
 void VulkanEngine::ClearVulkan()
