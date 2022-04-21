@@ -62,6 +62,41 @@ struct GPUObjectData {
 	glm::vec4 extents;
 };
 
+struct CullParams {
+	glm::mat4 viewMat;
+	glm::mat4 projMat;
+	bool occlusionCull;
+	bool frustrumCull;
+	float drawDist;
+	bool aabb;
+	glm::vec3 aabbMin;
+	glm::vec3 aabbMax;
+};
+
+struct DrawCullData
+{
+	glm::mat4 viewMat;
+	float p00, p11, znear, zfar;// symmetric projection parameters
+	float frustum[4];	// data for left/right/top/bottom frustum planes
+	float lodBase, lodStep;	// lod distance i = base * pow(step, i)
+	float pyramidWidth, pyramidHeight; // depth pyramid size in texels
+
+	uint32_t drawCount;
+	int cullingEnabled;
+	int lodEnabled;
+	int occlusionEnabled;
+
+	int distanceCheck;
+	int AABBCheck;
+	float aabbMinX;
+	float aabbMinY;
+
+	float aabbMinZ;
+	float aabbMaxX;
+	float aabbMaxY;
+	float aabbMaxZ;
+};
+
 struct FrameData {
 	VkSemaphore presentSemaphore, renderSemaphore;
 	VkFence renderFence;
@@ -228,6 +263,8 @@ private:
 	void ReadyMeshDraw(VkCommandBuffer cmd);
 
 	void ReadyCullData(RenderScene::MeshPass& pass, VkCommandBuffer cmd);
+
+	void ExecuteComputeCull(VkCommandBuffer cmd, RenderScene::MeshPass& pass, CullParams& params);
 
 	void ReallocateBuffer(AllocatedBufferUntyped& buffer, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlags = 0);
 	

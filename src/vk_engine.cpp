@@ -33,7 +33,8 @@
 
 
 #include <fmt_lib/os.h>
-
+AutoCVar_Float CVAR_DrawDistance("gpu.drawDistance", "Distance cull", 5000);
+AutoCVar_Int CVAR_OutputIndirectToFile("culling.outputIndirectBufferToFile", "output the indirect data to a file. Autoresets", 0, CVarFlags::EditCheckbox);
 
 constexpr bool bUseValidationLayers = true;
 
@@ -241,6 +242,18 @@ void VulkanEngine::draw()
 				0, 0, nullptr, m_CullReadyBarriers.size(), m_CullReadyBarriers.data(), 0, nullptr);
 		}
 	}
+
+	CullParams forwardCull;
+	forwardCull.projMat = m_Camera.get_projection_matrix(true);
+	forwardCull.viewMat = m_Camera.get_view_matrix();
+	forwardCull.frustrumCull = true;
+	forwardCull.occlusionCull = true;
+	forwardCull.drawDist = CVAR_DrawDistance.Get();
+	forwardCull.aabb = false;
+
+	ExecuteComputeCull(cmd, *m_RenderScene.GetMeshPass(MeshpassType::Forward), forwardCull);
+	ExecuteComputeCull(cmd, *m_RenderScene.GetMeshPass(MeshpassType::Transparency), forwardCull);
+
 	VkClearValue depthClear;
 	depthClear.depthStencil.depth = 1.f;
 	VkClearValue clearValues[] = { clearValue, depthClear };

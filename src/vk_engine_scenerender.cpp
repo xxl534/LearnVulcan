@@ -3,6 +3,14 @@
 #include <vk_initializers.h>
 
 #include <TracyVulkan.hpp>
+#include <cvar.h>
+
+AutoCVar_Int CVAR_FreezeCull("culling.freeze", "Locks culling", 0, CVarFlags::EditCheckBox);
+
+AutoCVar_Int CVAR_Shadowcast("gpu.shadowcast", "Use shadowcasting", 1, CVarFlags::EditCheckbox);
+
+AutoCVar_Float CVAR_ShadowBias("gpu.shadowBias", "Distance cull", 5.25f);
+AutoCVar_Float CVAR_SlopeBias("gpu.shadowBiasSlope", "Distance cull", 4.75f);
 
 void VulkanEngine::ReadyMeshDraw(VkCommandBuffer cmd)
 {
@@ -118,5 +126,108 @@ void VulkanEngine::ReadyCullData(RenderScene::MeshPass& pass, VkCommandBuffer cm
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
 		m_CullReadyBarriers.push_back(barrier);
+	}
+}
+
+glm::vec4 NormalizePlane(glm::vec4 p)
+{
+	return p / glm::length(glm::vec3(p));
+}
+
+void VulkanEngine::ExecuteComputeCull(VkCommandBuffer cmd, RenderScene::MeshPass& pass, CullParams& params)
+{
+	if (CVAR_FreezeCull.Get())
+		return;
+
+	if (pass.indirectBatches.size() == 0)
+		return;
+
+	TracyVkZone(m_GraphicQueueContext, cmd, "Cull Dispatch");
+
+	VkDescriptorBufferInfo objectBufferInfo = m_RenderScene.objectDataBuffer.GetInfo();
+	VkDescriptorBufferInfo dynamicInfo = GetCurrentFrame().dynamicData.source.GetInfo();
+	dynamicInfo.range = sizeof(GPUCameraData);
+
+	VkDescriptorBufferInfo instanceInfo = pass.passObjectsBuffer.GetInfo();
+	VkDescriptorBufferInfo finalInfo = pass.compactedInstanceBuffer.GetInfo();
+	VkDescriptorBufferInfo indirectInfo = pass.drawIndirectBuffer.GetInfo();
+
+	VkDescriptorImageInfo depthPyramid;
+	depthPyramid.sampler = m_DepthSampler;
+	depthPyramid.imageView = m_DepthPyramidImage.defaultView;
+	depthPyramid.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkDescriptorSet computeObjectDataSet;
+	vkutil::DescriptorBuilder::Begin(m_DescritptorLayoutCache, GetCurrentFrame().dynamicDescriptorAllocator)
+		.BindBuffer(0, &objectBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(1, &indirectInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(2, &instanceInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(3, &finalInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(4, &depthPyramid, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(5, &dynamicInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.Build(computeObjectDataSet);
+
+	glm::mat4 projection = params.projMat;
+	glm::mat4 projectionT = transpose(projection);
+
+	glm::vec4 frustumX = NormalizePlane(projectionT[3] + projectionT[0]);
+	glm::vec4 frustumY = NormalizePlane(projectionT[3] + projectionT[1]);
+
+	DrawCullData cullData{};
+	cullData.viewMat = params.viewMat;
+	cullData.p00 = projection[0][0];
+	cullData.p11 = projection[1][1];
+	cullData.znear = 0.1f;
+	cullData.zfar = params.drawDist;
+	cullData.frustum[0] = frustumX.x;
+	cullData.frustum[1] = frustumX.z;
+	cullData.frustum[2] = frustumY.y;
+	cullData.frustum[3] = frustumY.z;
+	cullData.lodBase = 10.f;
+	cullData.lodStep = 1.5f;
+	cullData.pyramidWidth = m_DepthPyramidWidth;
+	cullData.pyramidHeight = m_DepthPyramidHeight;
+	cullData.drawCount = pass.flatRenderBatches.size();
+	cullData.cullingEnabled = params.frustrumCull;
+	cullData.lodEnabled = false;
+	cullData.occlusionEnabled = params.occlusionCull;
+	cullData.distanceCheck = params.drawDist <= 10000;
+	cullData.AABBCheck = params.aabb;
+	cullData.aabbMinX = params.aabbMin.x;
+	cullData.aabbMinY = params.aabbMin.y;
+	cullData.aabbMinZ = params.aabbMin.z;
+	cullData.aabbMaxX = params.aabbMax.x;
+	cullData.aabbMaxY = params.aabbMax.y;
+	cullData.aabbMaxZ = params.aabbMax.z;
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_CullPipeline);
+	vkCmdPushConstants(cmd, m_CullLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DrawCullData), &cullData);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_CullLayout, 0, 1, &computeObjectDataSet, 0, nullptr);
+	vkCmdDispatch(cmd, static_cast<uint32_t>(pass.flatRenderBatches.size() / 256) + 1, 1, 1);
+
+	//barrier the 2 buffers we just wrote for culling, the indirect draw one, and the instances one, so that they can be read well when rendering the pass
+	{
+		VkBufferMemoryBarrier barrier = vkinit::buffer_barrier(pass.compactedInstanceBuffer.buffer, m_GraphicsQueueFamily);
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+		m_PostCullBarriers.push_back(barrier);
+	}
+	{
+		VkBufferMemoryBarrier barrier = vkinit::buffer_barrier(pass.drawIndirectBuffer.buffer, m_GraphicsQueueFamily);
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+		m_PostCullBarriers.push_back(barrier);
+	}
+
+	if (*CVarSystem::Get()->GetIntCVar("culling.outputIndirectBufferToFile"))
+	{
+		uint32_t offset = GetCurrentFrame().debugDataOffsets.back();
+		VkBufferCopy debugCopy;
+		debugCopy.dstOffset = offset;
+		debugCopy.size = pass.indirectBatches.size() * sizeof(GPUIndirectObject);
+		debugCopy.srcOffset = 0;
+		vkCmdCopyBuffer(cmd, pass.drawIndirectBuffer.buffer, GetCurrentFrame().debugOutputBuffer.buffer, 1, &debugCopy);
+		GetCurrentFrame().debugDataOffsets.push_back(offset + debugCopy.size);
+		GetCurrentFrame().debugDataNames.push_back("Cull Indirect Output");
 	}
 }
