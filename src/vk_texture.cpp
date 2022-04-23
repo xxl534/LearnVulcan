@@ -96,4 +96,9 @@ bool vkutil::LoadImageFromFile(VulkanEngine& engine, const char* file, Allocated
 	return true;
 }
 
+bool vkutil::LoadImageFromAsset(VulkanEngine& engine, const char* file, AllocatedImage& outImage)
+{
+	return false;
+}
+
 

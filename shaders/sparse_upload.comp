@@ -1,0 +1,32 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(push_constant) uniform constants{
+    int count;
+};
+
+//all object matrices;
+layout(set = 0, binding = 0)readonly buffer TargetIndexBuffer{
+    uint idx[];
+}target;
+
+//draw indirect buffer
+layout(set = 0, binding = 1) buffer SourceDataBuffer{
+    uint data[];
+}sourceData;
+
+//draw indirect Buffer
+layout(set =0, binding = 2) buffer TargetDataBuffer{
+    uint data[];
+}targetData;
+
+void main()
+{
+    uint gId = gl_GlobalInvocationID;
+    if(gId < count)
+    {
+        uint idx = target.idx[gId];
+        targetData.data[idx] = sourceData.data[gId];
+    }
+}

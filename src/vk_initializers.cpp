@@ -277,6 +277,21 @@ VkSubmitInfo vkinit::submit_info(VkCommandBuffer* cmd)
 	return info;
 }
 
+VkPresentInfoKHR vkinit::present_info()
+{
+	VkPresentInfoKHR info = vkinit::present_info();
+	info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	info.pNext = nullptr;
+
+	info.pSwapchains = nullptr;
+	info.swapchainCount = 0;
+	info.pWaitSemaphores = nullptr;
+	info.waitSemaphoreCount = 0;
+	info.pImageIndices = nullptr;
+
+	return info;
+}
+
 VkSamplerCreateInfo vkinit::sampler_create_info(VkFilter filter, VkSamplerAddressMode addressMode)
 {
 	VkSamplerCreateInfo info{};
@@ -332,5 +347,41 @@ VkBufferMemoryBarrier vkinit::buffer_barrier(VkBuffer buffer, uint32_t queue)
 	barrier.size = VK_WHOLE_SIZE;
 	barrier.srcQueueFamilyIndex = queue;
 	barrier.dstQueueFamilyIndex = queue;
+	return barrier;
+}
+
+VkRenderPassBeginInfo vkinit::renderpass_begin_info(VkRenderPass renderPass, VkExtent2D windowExtent, uint32_t clearCount, VkClearValue* clearValues, VkFramebuffer framebuffer)
+{
+	VkRenderPassBeginInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	info.pNext = nullptr;
+
+	info.renderPass = renderPass;
+	info.renderArea.offset.x = 0;
+	info.renderArea.offset.y = 0;
+	info.renderArea.extent = windowExtent;
+	info.clearValueCount = clearCount;
+	info.pClearValues = clearValues;
+
+	return info;
+}
+
+VkImageMemoryBarrier vkinit::image_barrier(VkImage image, VkAccessFlags srAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLAyout, VkImageLayout newLayout, VkImageAspectFlags aspectMask)
+{
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.pNext = nullptr;
+
+	barrier.srcAccessMask = srAccessMask;
+	barrier.dstAccessMask = dstAccessMask;
+	barrier.oldLayout = oldLAyout;
+	barrier.newLayout = newLayout;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image;
+	barrier.subresourceRange.aspectMask = aspectMask;
+	barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+	barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
 	return barrier;
 }

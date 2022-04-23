@@ -445,9 +445,9 @@ vkutil::Material* RenderScene::GetMaterial(Handle<vkutil::Material> id)
     return materials[id.handle];
 }
 
-RenderScene::MeshPass* RenderScene::GetMeshPass(MeshpassType type)
+RenderScene::MeshPass& RenderScene::GetMeshPass(MeshpassType type)
 {
-    return &m_Passes[type];
+    return m_Passes[type];
 }
 
 Handle<vkutil::Material> RenderScene::GetMaterialHandle(vkutil::Material* m)

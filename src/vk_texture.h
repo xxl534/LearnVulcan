@@ -4,4 +4,5 @@
 
 namespace vkutil {
 	bool LoadImageFromFile(VulkanEngine& engine, const char* file, AllocatedImage& outImage);
+	bool LoadImageFromAsset(VulkanEngine& engine, const char* file, AllocatedImage& outImage);
 }

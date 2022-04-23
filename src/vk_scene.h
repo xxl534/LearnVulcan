@@ -146,7 +146,7 @@ public:
 
 	std::vector<Handle<RenderObject>> dirtyObjects;
 
-	MeshPass* GetMeshPass(MeshpassType type);
+	MeshPass& GetMeshPass(MeshpassType type);
 
 	vkutil::PerPassData<MeshPass> m_Passes;
 

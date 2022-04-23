@@ -28,13 +28,18 @@
 #include "vk_mem_alloc.h"
 
 #include <vk_texture.h>
-
 #include <glm/gtx/transform.hpp>
-
-
 #include <fmt_lib/os.h>
-AutoCVar_Float CVAR_DrawDistance("gpu.drawDistance", "Distance cull", 5000);
+
+AutoCVar_Int CVAR_OcclusionCullGPU("culling.enableOcclusionGPU", "Perform occlusion culling in gpu", 1, CVarFlags::EditCheckbox);
+
+
+AutoCVar_Int CVAR_CamLock("camera.lock", "Locks the camera", 0, CVarFlags::EditCheckbox);
 AutoCVar_Int CVAR_OutputIndirectToFile("culling.outputIndirectBufferToFile", "output the indirect data to a file. Autoresets", 0, CVarFlags::EditCheckbox);
+
+AutoCVar_Float CVAR_DrawDistance("gpu.drawDistance", "Distance cull", 5000);
+
+AutoCVar_Int CVAR_FreezeShadows("gpu.freezeShadows", "Stop the rendering of shadows", 0, CVarFlags::EditCheckbox);
 
 constexpr bool bUseValidationLayers = true;
 
@@ -114,8 +119,11 @@ void VulkanEngine::Init()
 
 
 	m_Camera = {};
+	m_Camera.position = { 0.f, 6.f, 5.f };
 
 	m_MainLight.lightPosition = { 0,0,0 };
+	m_MainLight.lightDirection = glm::vec3(0.3, -1, 0.3);
+	m_MainLight.shadowExtent = { 100 ,100 ,100 };
 
 	//everything went fine
 	_isInitialized = true;
@@ -129,6 +137,11 @@ void VulkanEngine::Cleanup()
 		}
 		
 		m_MainDeletionQueue.flush();
+
+		for (auto& frame : m_Frames)
+		{
+			frame.dynamicDescriptorAllocator->Cleanup();
+		}
 
 		m_MaterialSystem->Cleanup();
 		//descriptor
@@ -226,7 +239,7 @@ void VulkanEngine::draw()
 		m_PostCullBarriers.clear();
 		m_CullReadyBarriers.clear();
 
-		TracyVkZone(m_GraphicsQueue, currentFrame.mainCommandBuffer, "All Frame");
+		TracyVkZone(m_GraphicQueueContext, currentFrame.mainCommandBuffer, "All Frame");
 
 		vkutil::VulkanScopeTimer timerAllFrame(cmd, m_Profiler, "All Frame");
 		{
@@ -234,9 +247,9 @@ void VulkanEngine::draw()
 
 			ReadyMeshDraw(cmd);
 
-			ReadyCullData(*m_RenderScene.GetMeshPass(MeshpassType::Forward), cmd);
-			ReadyCullData(*m_RenderScene.GetMeshPass(MeshpassType::Transparency), cmd);
-			ReadyCullData(*m_RenderScene.GetMeshPass(MeshpassType::DirectionalShadow), cmd);
+			ReadyCullData(m_RenderScene.GetMeshPass(MeshpassType::Forward), cmd);
+			ReadyCullData(m_RenderScene.GetMeshPass(MeshpassType::Transparency), cmd);
+			ReadyCullData(m_RenderScene.GetMeshPass(MeshpassType::DirectionalShadow), cmd);
 
 			vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 				0, 0, nullptr, m_CullReadyBarriers.size(), m_CullReadyBarriers.data(), 0, nullptr);
@@ -251,61 +264,186 @@ void VulkanEngine::draw()
 	forwardCull.drawDist = CVAR_DrawDistance.Get();
 	forwardCull.aabb = false;
 
-	ExecuteComputeCull(cmd, *m_RenderScene.GetMeshPass(MeshpassType::Forward), forwardCull);
-	ExecuteComputeCull(cmd, *m_RenderScene.GetMeshPass(MeshpassType::Transparency), forwardCull);
+	ExecuteComputeCull(cmd, m_RenderScene.GetMeshPass(MeshpassType::Forward), forwardCull);
+	ExecuteComputeCull(cmd, m_RenderScene.GetMeshPass(MeshpassType::Transparency), forwardCull);
 
-	VkClearValue depthClear;
-	depthClear.depthStencil.depth = 1.f;
-	VkClearValue clearValues[] = { clearValue, depthClear };
+	CullParams shadowCull;
+	shadowCull.projMat = m_MainLight.GetProjection();
+	shadowCull.viewMat = m_MainLight.GetView();
+	shadowCull.frustrumCull = true;
+	shadowCull.occlusionCull = false;
+	shadowCull.drawDist = 999999;
+	shadowCull.aabb = true;
 
-	VkRenderPassBeginInfo rpInfo = {};
-	rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	rpInfo.pNext = nullptr;
+	glm::vec3 aabbcenter = m_MainLight.lightPosition;
+	glm::vec3 aabbExtent = m_MainLight.shadowExtent * 1.5f;
+	shadowCull.aabbMax = aabbcenter + aabbExtent;
+	shadowCull.aabbMin = aabbcenter - aabbExtent;
+	{
+		vkutil::VulkanScopeTimer timerShadowCull(cmd, m_Profiler, "Shadow Cull");
+		if (*CVarSystem::Get()->GetIntCVar("gpu.shadowcast"))
+		{
+			ExecuteComputeCull(cmd, m_RenderScene.GetMeshPass(MeshpassType::DirectionalShadow), shadowCull);
+		}
+	}
 
-	rpInfo.renderPass = GetRenderPass(PassType::Forward);
-	rpInfo.renderArea.offset.x = 0;
-	rpInfo.renderArea.offset.y = 0;
-	rpInfo.renderArea.extent = m_WindowExtent;
-	rpInfo.framebuffer = m_FrameBuffers[swapchainImageIndex];
-	rpInfo.clearValueCount = 2;
-	rpInfo.pClearValues = clearValues;
+	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 0, nullptr, m_PostCullBarriers.size(), m_PostCullBarriers.data(), 0, nullptr);
 
-	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+	m_Stats.drawcalls = 0;
+	m_Stats.draws = 0;
+	m_Stats.objects = 0;
+	m_Stats.triangles = 0;
 
-	draw_objects(cmd, _renderables.data(), _renderables.size());
+	ShadowPass(cmd);
+	ForwardPass(clearValue, cmd);
+	ReduceDepth(cmd);
+	CopyRenderToSwapchain(swapchainImageIndex, cmd);
 
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-	vkCmdEndRenderPass(cmd);
 	VK_CHECK(vkEndCommandBuffer(cmd));
-
-	VkSubmitInfo submit = {};
-	submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit.pNext = nullptr;
-
+	VkSubmitInfo submit = vkinit::submit_info(&cmd);
 	VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	submit.pWaitDstStageMask = &waitStage;
 	submit.waitSemaphoreCount = 1;
 	submit.pWaitSemaphores = &currentFrame.presentSemaphore;
 	submit.signalSemaphoreCount = 1;
 	submit.pSignalSemaphores = &currentFrame.renderSemaphore;
-	submit.commandBufferCount = 1;
-	submit.pCommandBuffers = &cmd;
+	{
+		ZoneScopedN("Queue Submit");
+		VK_CHECK(vkQueueSubmit(m_GraphicsQueue, 1, &submit, currentFrame.renderFence));
+	}
 
-	VK_CHECK(vkQueueSubmit(m_GraphicsQueue, 1, &submit, currentFrame.renderFence));
-
-	VkPresentInfoKHR presentInfo = {};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	presentInfo.pNext = nullptr;
+	VkPresentInfoKHR presentInfo = vkinit::present_info();
 
 	presentInfo.pSwapchains = &m_SwapChain;
 	presentInfo.swapchainCount = 1;
 	presentInfo.pWaitSemaphores = &currentFrame.renderSemaphore;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pImageIndices = &swapchainImageIndex;
-	
-	VK_CHECK(vkQueuePresentKHR(m_GraphicsQueue, &presentInfo));
+
+	{
+		ZoneScopedN("Queue Present");
+		VK_CHECK(vkQueuePresentKHR(m_GraphicsQueue, &presentInfo));
+	}
 
 	++m_FrameNumber;
+}
+
+
+void VulkanEngine::ForwardPass(VkClearValue clearValue, VkCommandBuffer cmd)
+{
+	vkutil::VulkanScopeTimer timer(cmd, m_Profiler, "Forward Pass");
+	vkutil::VulkanPipelineStatRecorder recorder(cmd, m_Profiler, "Forward Primitives");
+
+	VkClearValue depthClear;
+	depthClear.depthStencil.depth = 0.f;
+
+	VkClearValue clearValues[] = { clearValue, depthClear };
+	VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(m_Passes[PassType::Forward], m_WindowExtent, 2, clearValues, m_ForwardFramebuffer);
+
+	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport;
+	viewport.x = 0.f;
+	viewport.y = 0.f;
+	viewport.width = m_WindowExtent.width;
+	viewport.height = m_WindowExtent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor;
+	scissor.offset = { 0,0 };
+	scissor.extent = m_WindowExtent;
+
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+	vkCmdSetDepthBias(cmd, 0, 0, 0);
+
+	{
+		TracyVkZone(m_GraphicQueueContext, GetCurrentFrame().mainCommandBuffer, "Forward Pass");
+		DrawObjectsForward(cmd, m_RenderScene.GetMeshPass(MeshpassType::Forward));
+		DrawObjectsForward(cmd, m_RenderScene.GetMeshPass(MeshpassType::Transparency));
+	}
+	{
+		TracyVkZone(m_GraphicQueueContext, GetCurrentFrame().mainCommandBuffer, "Imgui Draw");
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+	}
+	vkCmdEndRenderPass(cmd);
+}
+
+void VulkanEngine::ShadowPass(VkCommandBuffer cmd)
+{
+	vkutil::VulkanScopeTimer timer(cmd, m_Profiler, "Shadow Pass");
+	vkutil::VulkanPipelineStatRecorder recorder(cmd, m_Profiler, "Shadow Primitives");
+
+	VkClearValue depthClear;
+	depthClear.depthStencil.depth = 1.f;
+
+	VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(m_Passes[PassType::Shadow], m_ShadowExtent, 1, &depthClear, m_ShadowFramebuffer);
+
+	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport;
+	viewport.x = 0.f;
+	viewport.y = 0.f;
+	viewport.width = m_ShadowExtent.width;
+	viewport.height = m_ShadowExtent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor;
+	scissor.offset = { 0,0 };
+	scissor.extent = m_ShadowExtent;
+
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+	if(m_RenderScene.GetMeshPass(MeshpassType::DirectionalShadow).indirectBatches.size() > 0)
+	{
+		TracyVkZone(m_GraphicQueueContext, GetCurrentFrame().mainCommandBuffer, "Shadow Pass");
+		DrawObjectsShadow(cmd, m_RenderScene.GetMeshPass(MeshpassType::DirectionalShadow));
+	}
+	vkCmdEndRenderPass(cmd);
+}
+
+void VulkanEngine::CopyRenderToSwapchain(uint32_t swapchainImageIndex, VkCommandBuffer cmd)
+{
+	VkRenderPassBeginInfo rpInfo = vkinit::renderpass_begin_info(m_Passes[PassType::Copy], m_WindowExtent, 0, nullptr, m_FrameBuffers[swapchainImageIndex]);
+
+	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport;
+	viewport.x = 0.f;
+	viewport.y = 0.f;
+	viewport.width = m_WindowExtent.width;
+	viewport.height = m_WindowExtent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor;
+	scissor.offset = { 0,0 };
+	scissor.extent = m_WindowExtent;
+
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+	vkCmdSetDepthBias(cmd, 0, 0, 0);
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_BlitPipeline);
+
+	VkDescriptorImageInfo sourceImage;
+	sourceImage.sampler = m_SmoothSampler;
+	sourceImage.imageView = m_RawRenderImage.defaultView;
+	sourceImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkDescriptorSet blitSet;
+	vkutil::DescriptorBuilder::Begin(m_DescritptorLayoutCache, GetCurrentFrame().dynamicDescriptorAllocator)
+		.BindImage(0, &sourceImage, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.Build(blitSet);
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_BlitLayout, 0, 1, &blitSet, 0, nullptr);
+
+	vkCmdDraw(cmd, 3, 1, 0, 0);
+
+	vkCmdEndRenderPass(cmd);
 }
 
 void VulkanEngine::run()
@@ -313,13 +451,25 @@ void VulkanEngine::run()
 	SDL_Event e;
 	bool bQuit = false;
 
+	// Using time point and system_clock 
+	std::chrono::time_point<std::chrono::system_clock> start, end;
+
+	start = std::chrono::system_clock::now();
+	end = std::chrono::system_clock::now();
 	//main loop
 	while (!bQuit)
 	{
+		ZoneScopedN("Main Loop");
+		end = std::chrono::system_clock::now();
+		std::chrono::duration<float> elapsed_seconds = end - start;
+		m_Stats.frametime = elapsed_seconds.count() * 1000.f;
+
+		start = std::chrono::system_clock::now();
 		//Handle events on queue
 		while (SDL_PollEvent(&e) != 0)
 		{
 			ImGui_ImplSDL2_ProcessEvent(&e);
+			m_Camera.process_input_event(&e);
 			//close the window when user alt-f4s or clicks the X button			
 			if (e.type == SDL_QUIT)
 			{
@@ -327,141 +477,96 @@ void VulkanEngine::run()
 			}
 			else if (e.type == SDL_KEYDOWN)
 			{
-				if (e.key.keysym.sym == SDLK_SPACE)
+				if (e.key.keysym.sym == SDLK_TAB)
 				{
-					_selectedShader += 1;
-					if (_selectedShader > 2)
+					if (CVAR_CamLock.Get())
 					{
-						_selectedShader = 0;
+						LOG_INFO("Mouselook disabled");
+						CVAR_CamLock.Set(false);
+					}
+					else {
+						LOG_INFO("Mouselook enabled");
+						CVAR_CamLock.Set(true);
 					}
 				}
 			}
 		}
 
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplSDL2_NewFrame(m_Window);
-
-		ImGui::NewFrame();
-
-		if (ImGui::BeginMainMenuBar())
 		{
+			ZoneScopedNC("Imgui Logic", tracy::Color::Grey);
 
-			if (ImGui::BeginMenu("Debug"))
+			ImGui_ImplVulkan_NewFrame();
+			ImGui_ImplSDL2_NewFrame(m_Window);
+
+			ImGui::NewFrame();
+
+			if (ImGui::BeginMainMenuBar())
 			{
-				if (ImGui::BeginMenu("CVAR"))
+
+				if (ImGui::BeginMenu("Debug"))
 				{
-					CVarSystem::Get()->DrawImguiEditor();
+					if (ImGui::BeginMenu("CVAR"))
+					{
+						CVarSystem::Get()->DrawImguiEditor();
+						ImGui::EndMenu();
+					}
 					ImGui::EndMenu();
 				}
-				ImGui::EndMenu();
+				ImGui::EndMainMenuBar();
 			}
-			ImGui::EndMainMenuBar();
+
+			ImGui::Begin("engine");
+
+			ImGui::Text("Frametimes: %f", m_Stats.frametime);
+			ImGui::Text("Objects: %d", m_Stats.objects);
+			//ImGui::Text("Drawcalls: %d", m_Stats.drawcalls);
+			ImGui::Text("Batches: %d", m_Stats.draws);
+			//ImGui::Text("Triangles: %d", m_Stats.triangles);		
+
+			CVAR_OutputIndirectToFile.Set(false);
+			if (ImGui::Button("Output Indirect"))
+			{
+				CVAR_OutputIndirectToFile.Set(true);
+			}
+
+
+			ImGui::Separator();
+
+			for (auto& [k, v] : m_Profiler->timing)
+			{
+				ImGui::Text("TIME %s %f ms", k.c_str(), v);
+			}
+			for (auto& [k, v] : m_Profiler->stats)
+			{
+				ImGui::Text("STAT %s %d", k.c_str(), v);
+			}
+
+
+			ImGui::End();
 		}
+		
 
+		{
+			ZoneScopedNC("Flag Objects", tracy::Color::Blue);
+			//test flagging some objects for changes
 
-		//ImGui::Begin("engine");
+			int N_changes = 1000;
+			for (int i = 0; i < N_changes; i++)
+			{
+				int rng = rand() % m_RenderScene.renderables.size();
 
-		//ImGui::Text("Frametimes: %f", stats.frametime);
-		//ImGui::Text("Objects: %d", stats.passObjects);
-		////ImGui::Text("Drawcalls: %d", stats.drawcalls);
-		//ImGui::Text("Batches: %d", stats.draws);
-		////ImGui::Text("Triangles: %d", stats.triangles);		
+				Handle<RenderObject> h;
+				h.handle = rng;
+				m_RenderScene.UpdateObject(h);
+			}
+			m_Camera.bLocked = CVAR_CamLock.Get();
 
-		//CVAR_OutputIndirectToFile.Set(false);
-		//if (ImGui::Button("Output Indirect"))
-		//{
-		//	CVAR_OutputIndirectToFile.Set(true);
-		//}
+			m_Camera.update_camera(m_Stats.frametime);
 
-
-		//ImGui::Separator();
-
-		//for (auto& [k, v] : _profiler->timing)
-		//{
-		//	ImGui::Text("TIME %s %f ms", k.c_str(), v);
-		//}
-		//for (auto& [k, v] : _profiler->stats)
-		//{
-		//	ImGui::Text("STAT %s %d", k.c_str(), v);
-		//}
-
-
-		//ImGui::End();
+			m_MainLight.lightPosition = m_Camera.position;
+		}
 
 		draw();
-	}
-}
-
-void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int count)
-{
-	glm::vec3 camPos{ 0.f, -6.f, -10.f };
-	glm::mat4 view = glm::translate(glm::mat4(1.0f), camPos);
-	glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.f);
-	projection[1][1] *= -1;
-
-	GPUCameraData camData;
-	camData.proj = projection;
-	camData.view = view;
-	camData.viewproj = projection * view;
-
-	void* data;
-	vmaMapMemory(m_Allocator, GetCurrentFrame().cameraBuffer.allocation, &data);
-	memcpy(data, &camData, sizeof(GPUCameraData));
-	vmaUnmapMemory(m_Allocator, GetCurrentFrame().cameraBuffer.allocation);
-
-	char* sceneData;
-	_sceneParameters.ambientColor = { sin(m_FrameNumber / 120.f), 0, cos(m_FrameNumber / 120.f), 1 };
-	vmaMapMemory(m_Allocator, m_SceneParameterBuffer.allocation, (void**)&sceneData);
-	int frameIndex = m_FrameNumber % FRAME_OVERLAP;
-	sceneData += pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
-	memcpy(sceneData, &_sceneParameters, sizeof(GPUSceneData));
-	vmaUnmapMemory(m_Allocator, m_SceneParameterBuffer.allocation);
-
-	Mesh* lastMesh = nullptr;
-	Material* lastMaterial = nullptr;
-
-	void* objectData;
-	vmaMapMemory(m_Allocator, GetCurrentFrame().objectBuffer.allocation, &objectData);
-
-	GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
-	for (int i = 0; i < count; ++i)
-	{
-		RenderObject& object = first[i];
-		objectSSBO[i].color = glm::vec4((i + 0.1f)/ 255.f);
-		objectSSBO[i].modelMatrix = object.transformMatrix;
-	}
-
-	vmaUnmapMemory(m_Allocator, GetCurrentFrame().objectBuffer.allocation);
-	for (int i = 0; i < count; ++i)
-	{
-		RenderObject& obj = first[i];
-
-		if (obj.material != lastMaterial)
-		{
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipeline);
-			lastMaterial = obj.material;
-
-			uint32_t uniformOffset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 0, 1, &GetCurrentFrame().globalDescriptor, 1, &uniformOffset);
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 1, 1, &GetCurrentFrame().objectDescriptor, 0, nullptr);
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.material->pipelineLayout, 2, 1, &obj.material->textureSet, 0, nullptr);
-		}
-
-		int k = 0;
-		glm::mat4 mesh_matrix = obj.transformMatrix;
-
-		PipelineConstants constants;
-		constants.render_matrix = mesh_matrix;
-		vkCmdPushConstants(cmd, obj.material->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PipelineConstants), &constants);
-
-		if (obj.mesh != lastMesh)
-		{
-			VkDeviceSize offset = 0;
-			vkCmdBindVertexBuffers(cmd, 0, 1, &obj.mesh->_vertexBuffer.buffer, &offset);
-			lastMesh = obj.mesh;
-		}
-
-		vkCmdDraw(cmd, obj.mesh->_vertices.size(), 1, 0, i);
 	}
 }
 
@@ -1101,7 +1206,7 @@ void VulkanEngine::InitPipelines()
 		});
 
 	LoadComputeShader(ShaderPath("indirect_cull.comp.spv").c_str(), m_CullPipeline, m_CullLayout);
-	LoadComputeShader(ShaderPath("depthReduce.comp.spv").c_str(), m_DepthReducePipeline, m_DepthReduceLayout);
+	LoadComputeShader(ShaderPath("depth_reduce.comp.spv").c_str(), m_DepthReducePipeline, m_DepthReduceLayout);
 	LoadComputeShader(ShaderPath("sparse_upload.comp.spv").c_str(), m_SparseUploadPipeline, m_SparseUploadLayout);
 }
 
@@ -1508,7 +1613,7 @@ bool VulkanEngine::LoadImageToCache(const char* name, const char* path)
 	}
 
 	Texture tex;
-	bool result = vkutil::LoadImageFromFile(*this, path, tex.image);
+	bool result = vkutil::LoadImageFromAsset(*this, path, tex.image);
 	if (!result)
 	{
 		LOG_ERROR("Errir when loading texture {} at path {}", name, path);

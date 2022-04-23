@@ -11,7 +11,7 @@ enum class CVarFlags : uint32_t
 	EditReadOnly = 1 << 1,
 	Advanced = 1 << 2,
 
-	EditCheckBox = 1 << 8,
+	EditCheckbox = 1 << 8,
 	EditFloatDrag = 1 << 9,
 };
 

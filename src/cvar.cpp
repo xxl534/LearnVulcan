@@ -211,7 +211,7 @@ public:
 	void EditParameter(CVarParameter* p, float textWidth)
 	{
 		const bool readonlyFlag = ((uint32_t)p->flags & (uint32_t)CVarFlags::EditReadOnly);
-		const bool checkboxFlag = ((uint32_t)p->flags & (uint32_t)CVarFlags::EditCheckBox);
+		const bool checkboxFlag = ((uint32_t)p->flags & (uint32_t)CVarFlags::EditCheckbox);
 		const bool dragFlag = ((uint32_t)p->flags & (uint32_t)CVarFlags::EditFloatDrag);
 
 		switch (p->type)

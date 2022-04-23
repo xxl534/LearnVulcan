@@ -1,0 +1,163 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 5) uniform CameraBuffer{
+    mat4 view;
+    mat4 proj;
+    mat4 viewproj;
+}cameraData;
+
+struct DrawCullData
+{
+	mat4 viewMat;
+	float p00, p11, znear, zfar;// symmetric projection parameters
+	float frustum[4];	// data for left/right/top/bottom frustum planes
+	float lodBase, lodStep;	// lod distance i = base * pow(step, i)
+	float pyramidWidth, pyramidHeight; // depth pyramid size in texels
+
+	uint drawCount;
+	int cullingEnabled;
+	int lodEnabled;
+	int occlusionEnabled;
+
+	int distCull;
+	int AABBCheck;
+	float aabbMinX;
+	float aabbMinY;
+
+	float aabbMinZ;
+	float aabbMaxX;
+	float aabbMaxY;
+	float aabbMaxZ;
+};
+
+layout(push_constant) uniform constants{
+    DrawCullData cullData;
+};
+
+layout(set = 0, binding = 4) uniform sampler2D depthPyramid;
+
+struct ObjectData{
+    mat4 model;
+    vec4 sphereBounds;
+    vec4 extents;
+}
+
+layout(std140, set= 0, binding = 0) readonly buffer ObjectBuffer{
+    ObjectData objects[];
+}objectBuffer;
+
+struct DrawCommand
+{
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+    uint objectId;
+    uint batchId;
+}
+
+layout(set = 0, binding = 1) buffer InstanceBuffer{
+    DrawCommand draws[];
+} drawBuffer;
+
+struct GPUInstance{
+    uint objectId;
+    uint batchId;
+}
+
+layout(set = 0, binding = 2) readonly buffer InstanceBuffer2{
+    GPUInstance instances[];
+} compactInstanceBuffer;
+
+layout(set = 0, binding = 3) buffer InstanceBuffer3{
+    uint Ids[];
+} finalInstanceBuffer;
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+bool projectSphere(vec3 center float radius, float znear, float P00, float P11, out vec4 aabb)
+{
+    if (center.z < radius + znear)
+		return false;
+
+	vec2 cx = -center.xz;
+	vec2 vx = vec2(sqrt(dot(cx, cx) - radius * radius), radius);
+	vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
+	vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
+
+	vec2 cy = -center.yz;
+	vec2 vy = vec2(sqrt(dot(cy, cy) - radius * radius), radius);
+	vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
+	vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
+
+	aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
+	aabb = aabb.xwzy * vec4(0.5f, -0.5f, 0.5f, -0.5f) + vec4(0.5f); // clip space -> uv space
+
+	return true;
+}
+
+bool IsVisible(uint objectIndex)
+{
+    uint index =objectIndex;
+    vec4 sphereBounds = objectBuffer.objects[index].sphereBounds;
+
+    vec3 center = sphereBounds.xyz;
+    center = (cullData.view * vec4(center,1.f)).xyz;
+    float radius = sphereBounds.w;
+    
+	// the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
+    bool visible = cullData.cullingEnabled == 0 
+            || ((center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius)
+                && (center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius);
+                && (cullData.distCull == 0 
+                    || (center.z + radius > cullData.znear && center.z - radius < cullData.zfar)));
+    
+    
+	//flip Y because we access depth texture that way
+    center.y *= -1;
+
+    if(visible && cullData.occlusionEnabled != 0)
+    {
+        vec4 aabb;
+        if(projectSphere(center, radius, cullData.znearm cullData.p00, cullData.p11, aabb))
+        {
+            float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
+            float height = (aabb.w - aabb.y) * cullData.pyramidHeight;
+
+            float level = floor(log2(max(width, height)));
+
+            float depth = textureLod(depthPyramid, (aabb.xy + aabb.zw) * 0.5, level).x;
+            float depthSphere = cullData.znear / (center.z - radius)
+
+            visible = depthSphere >= depth;
+        }
+    }
+    return  visible;
+}
+void main()
+{
+    uint gId = gl_GlobalInvocationID.x;
+    if(gId < cullData.drawCount)
+    {
+        uint objectId = compactInstanceBuffer.instanceCount[gId].objectId;
+        bool visible = false;
+        if(cullData.AABBCheck == 0)
+        {
+            visible = IsVisible(objectId);
+        }
+        else
+        {
+            visible = isVisibleAABB(objectId);
+        }
+
+        if(visible)
+        {
+            uint batchIndex = compactInstanceBuffer.instances[gId].batchId;
+            uint countIndex = atomicAdd(drawBuffer.draws[batchIndex].instanceCount, 1);
+            uint instanceIndex = drawBuffer.draws[batchIndex].firstInstance + countIndex;
+            finalInstanceBuffer.Ids[instanceIndex] = objectId;
+        }
+    }
+}

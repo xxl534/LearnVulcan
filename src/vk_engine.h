@@ -47,6 +47,7 @@ struct GPUSceneData
 	glm::vec4 ambientColor;
 	glm::vec4 sunlightDirection;
 	glm::vec4 sunlightColor;
+	glm::mat4 sunlightShadowMatrix;
 };
 
 struct GPUCameraData
@@ -71,6 +72,14 @@ struct CullParams {
 	bool aabb;
 	glm::vec3 aabbMin;
 	glm::vec3 aabbMax;
+};
+
+struct EngineStats {
+	float frametime;
+	int objects;
+	int drawcalls;
+	int draws;
+	int triangles;
 };
 
 struct DrawCullData
@@ -114,11 +123,6 @@ struct FrameData {
 
 	std::vector<uint32_t> debugDataOffsets;
 	std::vector<std::string> debugDataNames;
-};
-
-struct PipelineConstants {
-	glm::vec4 data;
-	glm::mat4 render_matrix;
 };
 
 enum ShaderType {
@@ -174,7 +178,6 @@ enum PassType {
 class VulkanEngine {
 public:
 
-	GPUSceneData _sceneParameters;
 
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
@@ -194,8 +197,6 @@ public:
 
 	//run main loop
 	void run();
-
-	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 
 	FrameData& GetCurrentFrame();
 
@@ -264,6 +265,20 @@ private:
 
 	void ReadyCullData(RenderScene::MeshPass& pass, VkCommandBuffer cmd);
 
+	void DrawObjectsForward(VkCommandBuffer cmd, RenderScene::MeshPass& pass);
+
+	void DrawObjectsShadow(VkCommandBuffer cmd, RenderScene::MeshPass& pass);
+
+	void ExecuteDrawCommands(VkCommandBuffer cmd, RenderScene::MeshPass& passs, VkDescriptorSet objectDataSet, std::vector<uint32_t> dynamicOffsets, VkDescriptorSet globalSet);
+
+	void ForwardPass(VkClearValue clearValue, VkCommandBuffer cmd);
+
+	void ShadowPass(VkCommandBuffer cmd);
+
+	void CopyRenderToSwapchain(uint32_t swapchainImageIndex, VkCommandBuffer cmd);
+
+	void ReduceDepth(VkCommandBuffer cmd);
+
 	void ExecuteComputeCull(VkCommandBuffer cmd, RenderScene::MeshPass& pass, CullParams& params);
 
 	void ReallocateBuffer(AllocatedBufferUntyped& buffer, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlags = 0);
@@ -287,6 +302,7 @@ private:
 	DeletionQueue m_MainDeletionQueue;
 
 	vkutil::VulkanProfiler* m_Profiler;
+	EngineStats m_Stats;
 
 	VkQueue m_GraphicsQueue;
 	uint32_t m_GraphicsQueueFamily;
@@ -349,6 +365,7 @@ private:
 	std::unordered_map<std::string, Texture> m_LoadedTextures;
 
 	RenderScene m_RenderScene;
+	GPUSceneData m_SceneParameters;
 	AllocatedBufferUntyped m_SceneParameterBuffer;
 
 	PlayerCamera m_Camera;

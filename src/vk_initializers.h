@@ -48,6 +48,8 @@ namespace vkinit {
 
 	VkSubmitInfo submit_info(VkCommandBuffer* cmd);
 
+	VkPresentInfoKHR present_info();
+
 	VkSamplerCreateInfo sampler_create_info(VkFilter filter, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
 	VkWriteDescriptorSet write_descriptor_image(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorImageInfo* imageInfo, uint32_t binding);
@@ -55,5 +57,9 @@ namespace vkinit {
 	VkFramebufferCreateInfo framebuffer_create_info(VkRenderPass renderPass, VkExtent2D extent);
 
 	VkBufferMemoryBarrier buffer_barrier(VkBuffer buffer, uint32_t queue);
+
+	VkRenderPassBeginInfo renderpass_begin_info(VkRenderPass renderPass, VkExtent2D windowExtent, uint32_t clearCount, VkClearValue* clearValues, VkFramebuffer framebuffer);
+
+	VkImageMemoryBarrier image_barrier(VkImage iamge, VkAccessFlags srAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLAyout, VkImageLayout newLayout, VkImageAspectFlags aspectMask);
 }
 
