@@ -202,7 +202,7 @@ public:
 
 	AllocatedBufferUntyped CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlag = 0);
 
-	void DestroyBuffer(AllocatedBufferUntyped buffer);
+	void DestroyBuffer(AllocatedBufferUntyped& buffer);
 
 	void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 
@@ -217,6 +217,14 @@ public:
 	inline vkutil::DescriptorLayoutCache* descriptorLayoutCache() const;
 	inline vkutil::MaterialSystem* materialSystem() const;
 	inline VkRenderPass GetRenderPass(PassType t) const;
+
+	template<typename T>
+	T* MapBuffer(AllocatedBuffer<T>& buffer);
+	void* MapBuffer(AllocatedBufferUntyped& buffer);
+	void UnmapBuffer(AllocatedBufferUntyped& buffer);
+
+	AllocatedImage CreateImage(VkImageCreateInfo* createInfo, VmaAllocationCreateInfo* allocInfo, VkFormat format, VkImageAspectFlags aspectFlags);
+	void DestroyImage(AllocatedImage& image);
 public:
 	static std::string ShaderPath(std::string_view path);
 	static std::string AssetPath(std::string_view path);
@@ -282,11 +290,6 @@ private:
 	void ExecuteComputeCull(VkCommandBuffer cmd, RenderScene::MeshPass& pass, CullParams& params);
 
 	void ReallocateBuffer(AllocatedBufferUntyped& buffer, size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlags = 0);
-	
-	template<typename T>
-	T* MapBuffer(AllocatedBuffer<T>& buffer);
-
-	void UnmapBuffer(AllocatedBufferUntyped& buffer);
 private:
 	void ClearVulkan();
 
@@ -407,9 +410,4 @@ inline T* VulkanEngine::MapBuffer(AllocatedBuffer<T>& buffer)
 	void* data;
 	vmaMapMemory(m_Allocator, buffer.allocation, &data);
 	return (T*)data;
-}
-
-void VulkanEngine::UnmapBuffer(AllocatedBufferUntyped& buffer)
-{
-	vmaUnmapMemory(m_Allocator, buffer.allocation);
 }

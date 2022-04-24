@@ -594,7 +594,7 @@ AllocatedBufferUntyped VulkanEngine::CreateBuffer(size_t allocSize, VkBufferUsag
 	return buffer;
 }
 
-void VulkanEngine::DestroyBuffer(AllocatedBufferUntyped buffer)
+void VulkanEngine::DestroyBuffer(AllocatedBufferUntyped& buffer)
 {
 	vmaDestroyBuffer(m_Allocator, buffer.buffer, buffer.allocation);
 }
@@ -1704,6 +1704,32 @@ void VulkanEngine::ReallocateBuffer(AllocatedBufferUntyped& buffer, size_t alloc
 		vmaDestroyBuffer(m_Allocator, buffer.buffer, buffer.allocation);
 		});
 	buffer = newBUffer;
+}
+
+void* VulkanEngine::MapBuffer(AllocatedBufferUntyped& buffer)
+{
+	void* data;
+	vmaMapMemory(m_Allocator, buffer.allocation, &data);
+	return data;
+}
+
+void VulkanEngine::UnmapBuffer(AllocatedBufferUntyped& buffer)
+{
+	vmaUnmapMemory(m_Allocator, buffer.allocation);
+}
+
+AllocatedImage VulkanEngine::CreateImage(VkImageCreateInfo* createInfo, VmaAllocationCreateInfo* allocInfo, VkFormat format, VkImageAspectFlags aspectFlags)
+{
+	AllocatedImage image{};
+	vmaCreateImage(m_Allocator, createInfo, allocInfo, &image.image, &image.allocation, nullptr);
+	VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(format, image.image, aspectFlags);
+	vkCreateImageView(m_Device, &viewInfo, nullptr, &image.defaultView);
+	return image;
+}
+
+void VulkanEngine::DestroyImage(AllocatedImage& image)
+{
+	vmaDestroyImage(m_Allocator, image.image, image.allocation);
 }
 
 void VulkanEngine::ClearVulkan()

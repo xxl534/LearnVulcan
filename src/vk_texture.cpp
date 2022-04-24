@@ -21,26 +21,43 @@ bool vkutil::LoadImageFromFile(VulkanEngine& engine, const char* file, Allocated
 
 	VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
 
-	AllocatedBuffer stagingBuffer = engine.CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+	AllocatedBufferUntyped stagingBuffer = engine.CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
-	void* data;
-	vmaMapMemory(engine.m_Allocator, stagingBuffer.allocation, &data);
+	void* data = engine.MapBuffer(stagingBuffer);
 	memcpy(data, pPixel, static_cast<size_t>(imageSize));
-	vmaUnmapMemory(engine.m_Allocator, stagingBuffer.allocation);
+	engine.UnmapBuffer(stagingBuffer);
 
 	stbi_image_free(pPixel);
 
+	outImage = UploadImage(texWidth, texHeight, format, engine, stagingBuffer);
+
+	engine.DestroyBuffer(stagingBuffer);
+
+	LOG_INFO("Texture loaded successfully");
+
+	return true;
+}
+
+bool vkutil::LoadImageFromAsset(VulkanEngine& engine, const char* file, AllocatedImage& outImage)
+{
+	return false;
+}
+
+AllocatedImage vkutil::UploadImage(int width, int height, VkFormat format, VulkanEngine& engine, AllocatedBufferUntyped& stagingBuffer)
+{
+	AllocatedImage outImage;
+
 	VkExtent3D imageExtent;
-	imageExtent.width = static_cast<uint32_t>(texWidth);
-	imageExtent.height = static_cast<uint32_t>(texHeight);
+	imageExtent.width = static_cast<uint32_t>(width);
+	imageExtent.height = static_cast<uint32_t>(height);
 	imageExtent.depth = 1;
 
 	VkImageCreateInfo imageInfo = vkinit::image_create_info(format, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, imageExtent);
-	AllocatedImage newImage;
+	
 	VmaAllocationCreateInfo imgAllocInfo{};
 	imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-	vmaCreateImage(engine.m_Allocator, &imageInfo, &imgAllocInfo, &newImage.image, &newImage.allocation, nullptr);
+	AllocatedImage newImage = engine.CreateImage(&imageInfo, &imgAllocInfo, format, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	engine.ImmediateSubmit([&](VkCommandBuffer cmd) {
 		VkImageSubresourceRange range;
@@ -85,20 +102,12 @@ bool vkutil::LoadImageFromFile(VulkanEngine& engine, const char* file, Allocated
 		}
 	);
 
-	engine.m_MainDeletionQueue.push_function([=]() {
-		vmaDestroyImage(engine.m_Allocator, newImage.image, newImage.allocation);
-		}
-	);
-	vmaDestroyBuffer(engine.m_Allocator, stagingBuffer.buffer, stagingBuffer.allocation);
-
 	outImage = newImage;
-
-	return true;
 }
 
-bool vkutil::LoadImageFromAsset(VulkanEngine& engine, const char* file, AllocatedImage& outImage)
+AllocatedImage vkutil::UploadImageMipmapped(int width, int height, VkFormat format, VulkanEngine& engine, AllocatedBufferUntyped& stagingBuffer, std::vector<MipmapInfo> mips)
 {
-	return false;
+	return AllocatedImage();
 }
 
 
