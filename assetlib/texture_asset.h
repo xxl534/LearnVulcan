@@ -25,7 +25,7 @@ namespace assets {
 		std::vector<PageInfo> pages;
 	};
 
-	TextureInfo read_texture_info(AssetFile* file);
+	TextureInfo ReadTextureInfo(AssetFile* file);
 
 	void unpack_texture(TextureInfo* info, const char* sourceBuffer, size_t sourceSize, char* destination);
 

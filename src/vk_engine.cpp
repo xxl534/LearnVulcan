@@ -1718,11 +1718,13 @@ void VulkanEngine::UnmapBuffer(AllocatedBufferUntyped& buffer)
 	vmaUnmapMemory(m_Allocator, buffer.allocation);
 }
 
-AllocatedImage VulkanEngine::CreateImage(VkImageCreateInfo* createInfo, VmaAllocationCreateInfo* allocInfo, VkFormat format, VkImageAspectFlags aspectFlags)
+AllocatedImage VulkanEngine::CreateImage(VkImageCreateInfo* createInfo, VmaAllocationCreateInfo* allocInfo, VkFormat format, VkImageAspectFlags aspectFlags, int mip)
 {
 	AllocatedImage image{};
 	vmaCreateImage(m_Allocator, createInfo, allocInfo, &image.image, &image.allocation, nullptr);
+	image.mipLevels = mip;
 	VkImageViewCreateInfo viewInfo = vkinit::imageview_create_info(format, image.image, aspectFlags);
+	viewInfo.subresourceRange.levelCount = mip;
 	vkCreateImageView(m_Device, &viewInfo, nullptr, &image.defaultView);
 	return image;
 }

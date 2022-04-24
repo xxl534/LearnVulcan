@@ -223,7 +223,7 @@ public:
 	void* MapBuffer(AllocatedBufferUntyped& buffer);
 	void UnmapBuffer(AllocatedBufferUntyped& buffer);
 
-	AllocatedImage CreateImage(VkImageCreateInfo* createInfo, VmaAllocationCreateInfo* allocInfo, VkFormat format, VkImageAspectFlags aspectFlags);
+	AllocatedImage CreateImage(VkImageCreateInfo* createInfo, VmaAllocationCreateInfo* allocInfo, VkFormat format, VkImageAspectFlags aspectFlags, int mip = 1);
 	void DestroyImage(AllocatedImage& image);
 public:
 	static std::string ShaderPath(std::string_view path);

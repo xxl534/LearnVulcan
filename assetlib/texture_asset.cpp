@@ -24,7 +24,7 @@ assets::TextureFormat parse_format(const char* f)
         return assets::TextureFormat::Unknown;
     }
 }
-assets::TextureInfo assets::read_texture_info(AssetFile* file)
+assets::TextureInfo assets::ReadTextureInfo(AssetFile* file)
 {
     TextureInfo info;
 
