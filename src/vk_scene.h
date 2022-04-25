@@ -10,6 +10,11 @@ struct GPUObjectData;
 template<typename T>
 struct Handle {
 	uint32_t handle;
+
+	bool operator==(const Handle& b)
+	{
+		return handle == b.handle;
+	}
 };
 
 struct Mesh;

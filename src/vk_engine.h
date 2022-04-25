@@ -28,6 +28,10 @@ namespace vkutil
 	class VulkanProfiler;
 }
 
+namespace tracy {
+	class VkCtx;
+}
+
 struct DirectionalLight {
 	glm::vec3 lightPosition;
 	glm::vec3 lightDirection;
@@ -106,6 +110,26 @@ struct DrawCullData
 	float aabbMaxZ;
 };
 
+struct DeletionQueue
+{
+	std::deque<std::function<void()>> deletors;
+
+	void push_function(std::function<void()>&& function)
+	{
+		deletors.push_back(function);
+	}
+
+	void flush()
+	{
+		for (auto it = deletors.rbegin(); it != deletors.rend(); ++it)
+		{
+			(*it)();
+		}
+
+		deletors.clear();
+	}
+};
+
 struct FrameData {
 	VkSemaphore presentSemaphore, renderSemaphore;
 	VkFence renderFence;
@@ -148,26 +172,6 @@ struct Texture {
 	VkImageView imageView;
 };
 
-struct DeletionQueue
-{
-	std::deque<std::function<void()>> deletors;
-
-	void push_function(std::function<void()>&& function)
-	{
-		deletors.push_back(function);
-	}
-
-	void flush()
-	{
-		for (auto it = deletors.rbegin(); it != deletors.rend(); ++it)
-		{
-			(*it)();
-		}
-
-		deletors.clear();
-	}
-};
-
 const unsigned int FRAME_OVERLAP = 2;
 enum PassType {
 	Forward,
@@ -202,7 +206,7 @@ public:
 
 	AllocatedBufferUntyped CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryPropertyFlags requiredFlag = 0);
 
-	void DestroyBuffer(AllocatedBufferUntyped& buffer);
+	void DestroyBuffer(AllocatedBufferUntyped buffer);
 
 	void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 

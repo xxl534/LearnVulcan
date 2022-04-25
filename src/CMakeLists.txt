@@ -1,6 +1,6 @@
 
 # Add source to this project's executable.
-file(GLOB ENGINE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
+file(GLOB ENGINE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*" "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 
 add_executable(vulkan_guide ${ENGINE_FILES})
 

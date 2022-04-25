@@ -24,13 +24,13 @@ layout(std140, set = 1, binding = 0) readonly buffer ObjectBuffer{
 
 layout(set = 1, binding = 1) readonly buffer InstanceBuffer{
     uint ids[];
-} InstanceBuffer;
+} instanceBuffer;
 
 void main()
 {
-    uint index = InstanceBuffer.Ids[gl_InstanceIndex];
+    uint index = instanceBuffer.ids[gl_InstanceIndex];
 
-    mat4 modelMatrix = objectBuffer.object[index].model;
+    mat4 modelMatrix = objectBuffer.objects[index].model;
     mat4 transformMatrix = (cameraData.viewproj * modelMatrix);
     gl_Position = transformMatrix * vec4(vPosition, 1.0f);
 }

@@ -29,7 +29,7 @@
 
 #include <vk_texture.h>
 #include <glm/gtx/transform.hpp>
-#include <fmt_lib/os.h>
+#include <fmt/os.h>
 
 AutoCVar_Int CVAR_OcclusionCullGPU("culling.enableOcclusionGPU", "Perform occlusion culling in gpu", 1, CVarFlags::EditCheckbox);
 
@@ -65,7 +65,7 @@ const char* ShaderTypeNames[3] = {
 
 void VulkanEngine::Init()
 {
-	ZoneScopedNC("Engine Init");
+	ZoneScopedN("Engine Init");
 
 	LogHandler::Get().set_time();
 
@@ -161,7 +161,7 @@ void VulkanEngine::Cleanup()
 
 void VulkanEngine::draw()
 {
-	ZoneScopedNC("Engine Draw");
+	ZoneScopedN("Engine Draw");
 	ImGui::Render();
 
 	FrameData& currentFrame = GetCurrentFrame();
@@ -252,7 +252,7 @@ void VulkanEngine::draw()
 			ReadyCullData(m_RenderScene.GetMeshPass(MeshpassType::DirectionalShadow), cmd);
 
 			vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				0, 0, nullptr, m_CullReadyBarriers.size(), m_CullReadyBarriers.data(), 0, nullptr);
+				0, 0, nullptr, (uint32_t)m_CullReadyBarriers.size(), m_CullReadyBarriers.data(), 0, nullptr);
 		}
 	}
 
@@ -261,7 +261,7 @@ void VulkanEngine::draw()
 	forwardCull.viewMat = m_Camera.get_view_matrix();
 	forwardCull.frustrumCull = true;
 	forwardCull.occlusionCull = true;
-	forwardCull.drawDist = CVAR_DrawDistance.Get();
+	forwardCull.drawDist = (float)CVAR_DrawDistance.Get();
 	forwardCull.aabb = false;
 
 	ExecuteComputeCull(cmd, m_RenderScene.GetMeshPass(MeshpassType::Forward), forwardCull);
@@ -287,7 +287,7 @@ void VulkanEngine::draw()
 		}
 	}
 
-	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 0, nullptr, m_PostCullBarriers.size(), m_PostCullBarriers.data(), 0, nullptr);
+	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 0, nullptr, (uint32_t)m_PostCullBarriers.size(), m_PostCullBarriers.data(), 0, nullptr);
 
 	m_Stats.drawcalls = 0;
 	m_Stats.draws = 0;
@@ -345,8 +345,8 @@ void VulkanEngine::ForwardPass(VkClearValue clearValue, VkCommandBuffer cmd)
 	VkViewport viewport;
 	viewport.x = 0.f;
 	viewport.y = 0.f;
-	viewport.width = m_WindowExtent.width;
-	viewport.height = m_WindowExtent.height;
+	viewport.width = (float)m_WindowExtent.width;
+	viewport.height = (float)m_WindowExtent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
@@ -385,8 +385,8 @@ void VulkanEngine::ShadowPass(VkCommandBuffer cmd)
 	VkViewport viewport;
 	viewport.x = 0.f;
 	viewport.y = 0.f;
-	viewport.width = m_ShadowExtent.width;
-	viewport.height = m_ShadowExtent.height;
+	viewport.width = (float)m_ShadowExtent.width;
+	viewport.height = (float)m_ShadowExtent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
@@ -414,8 +414,8 @@ void VulkanEngine::CopyRenderToSwapchain(uint32_t swapchainImageIndex, VkCommand
 	VkViewport viewport;
 	viewport.x = 0.f;
 	viewport.y = 0.f;
-	viewport.width = m_WindowExtent.width;
-	viewport.height = m_WindowExtent.height;
+	viewport.width = (float)m_WindowExtent.width;
+	viewport.height = (float)m_WindowExtent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
@@ -594,7 +594,7 @@ AllocatedBufferUntyped VulkanEngine::CreateBuffer(size_t allocSize, VkBufferUsag
 	return buffer;
 }
 
-void VulkanEngine::DestroyBuffer(AllocatedBufferUntyped& buffer)
+void VulkanEngine::DestroyBuffer(AllocatedBufferUntyped buffer)
 {
 	vmaDestroyBuffer(m_Allocator, buffer.buffer, buffer.allocation);
 }
@@ -801,7 +801,7 @@ void VulkanEngine::InitSwapchain()
 
 		VK_CHECK(vkCreateImageView(m_Device, &viewInfo, nullptr, &m_DepthPyramidImage.defaultView));
 
-		for (int32_t i = 0; i < m_DepthPyramidLevels; ++i)
+		for (uint32_t i = 0; i < m_DepthPyramidLevels; ++i)
 		{
 			VkImageViewCreateInfo levelInfo = vkinit::imageview_create_info(pyramidFmt, m_DepthPyramidImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
 			levelInfo.subresourceRange.levelCount = 1;
@@ -813,7 +813,7 @@ void VulkanEngine::InitSwapchain()
 		}
 
 		m_MainDeletionQueue.push_function([=]() {
-			for (int32_t i = 0; i < m_DepthPyramidLevels; ++i)
+			for (uint32_t i = 0; i < m_DepthPyramidLevels; ++i)
 			{
 				vkDestroyImageView(m_Device, m_DepthPyramidMips[i], nullptr);
 			}
@@ -1080,9 +1080,9 @@ void VulkanEngine::InitFramebuffers()
 		vkDestroyFramebuffer(m_Device, m_ShadowFramebuffer, nullptr);
 		});
 
-	const uint32_t swapchainImageCount = m_SwapchainImageViews.size();
+	const uint32_t swapchainImageCount = (uint32_t)m_SwapchainImageViews.size();
 	m_FrameBuffers = std::vector<VkFramebuffer>(swapchainImageCount);
-	for (int i = 0; i < swapchainImageCount; ++i)
+	for (uint32_t i = 0; i < swapchainImageCount; ++i)
 	{
 		VkFramebufferCreateInfo frameInfo = vkinit::framebuffer_create_info(GetRenderPass(PassType::Copy), m_WindowExtent);
 		frameInfo.pAttachments = &m_SwapchainImageViews[i];
@@ -1164,7 +1164,7 @@ void VulkanEngine::InitDescriptors()
 		AllocatedBufferUntyped dynamicDataBuffer = CreateBuffer(1000000, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 		m_Frames[i].debugOutputBuffer = CreateBuffer(20000000, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
 
-		m_Frames[i].dynamicData.Init(m_Allocator, dynamicDataBuffer, m_GpuPropertices.limits.minUniformBufferOffsetAlignment);
+		m_Frames[i].dynamicData.Init(m_Allocator, dynamicDataBuffer, (uint32_t)m_GpuPropertices.limits.minUniformBufferOffsetAlignment);
 		
 		m_MainDeletionQueue.push_function([=] {
 			m_Frames[i].dynamicDescriptorAllocator->Cleanup();
@@ -1323,7 +1323,7 @@ void VulkanEngine::InitImgui()
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.pNext = nullptr;
 	poolInfo.maxSets = 1000;
-	poolInfo.poolSizeCount = std::size(poolSize);
+	poolInfo.poolSizeCount = (uint32_t)std::size(poolSize);
 	poolInfo.pPoolSizes = poolSize;
 
 	VkDescriptorPool imguiPool;
@@ -1559,7 +1559,7 @@ bool VulkanEngine::LoadPrefab(const char* path, glm::mat4 root)
 		prefabRenderables.push_back(loadmesh);
 	}
 
-	m_RenderScene.RegisterObjectBatch(prefabRenderables.data(), prefabRenderables.size());
+	m_RenderScene.RegisterObjectBatch(prefabRenderables.data(), (uint32_t)prefabRenderables.size());
 	return true;
 }
 

@@ -94,8 +94,6 @@ bool vkutil::LoadImageFromAsset(VulkanEngine& engine, const char* filename, Allo
 
 AllocatedImage vkutil::UploadImage(int width, int height, VkFormat format, VulkanEngine& engine, AllocatedBufferUntyped& stagingBuffer, std::vector<MipmapInfo> mips)
 {
-	AllocatedImage outImage;
-
 	VkExtent3D imageExtent;
 	imageExtent.width = static_cast<uint32_t>(width);
 	imageExtent.height = static_cast<uint32_t>(height);
@@ -156,7 +154,7 @@ AllocatedImage vkutil::UploadImage(int width, int height, VkFormat format, Vulka
 		}
 	);
 
-	outImage = newImage;
+	return newImage;
 }
 
 

@@ -2,7 +2,6 @@
 #include <vk_shader.h>
 #include <vk_engine.h>
 #include <vk_initializers.h>
-#include "vk_pipeline_builder.h"
 void vkutil::MaterialSystem::Init(VulkanEngine* owner)
 {
 	m_Engine = owner;
@@ -201,7 +200,7 @@ VkPipeline PipelineBuilder::BuildPipeline(VkDevice device, VkRenderPass pass)
 	vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)vertexDescription.attributes.size();
 
 	vertexInputInfo.pVertexBindingDescriptions = vertexDescription.bindings.data();
-	vertexInputInfo.vertexBindingDescriptionCount = vertexDescription.bindings.size();
+	vertexInputInfo.vertexBindingDescriptionCount = (uint32_t)vertexDescription.bindings.size();
 
 	VkPipelineViewportStateCreateInfo viewportState = {};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -224,7 +223,7 @@ VkPipeline PipelineBuilder::BuildPipeline(VkDevice device, VkRenderPass pass)
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.pNext = nullptr;
 
-	pipelineInfo.stageCount = shaderStages.size();
+	pipelineInfo.stageCount = (uint32_t)shaderStages.size();
 	pipelineInfo.pStages = shaderStages.data();
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
 	pipelineInfo.pInputAssemblyState = &inputAssembly;
@@ -246,7 +245,7 @@ VkPipeline PipelineBuilder::BuildPipeline(VkDevice device, VkRenderPass pass)
 	dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 	dynamicStates.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
 	dynamicStateInfo.pDynamicStates = dynamicStates.data();
-	dynamicStateInfo.dynamicStateCount = dynamicStates.size();
+	dynamicStateInfo.dynamicStateCount = (uint32_t)dynamicStates.size();
 
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
 

@@ -76,7 +76,7 @@ namespace vkutil
 	public:
 		T& operator[](MeshpassType pass)
 		{
-			switch (switch_on)
+			switch (pass)
 			{
 			case MeshpassType::Forward:
 				return m_Datas[0];

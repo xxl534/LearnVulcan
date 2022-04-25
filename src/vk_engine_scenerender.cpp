@@ -23,7 +23,7 @@ void VulkanEngine::ReadyMeshDraw(VkCommandBuffer cmd)
 		ZoneScopedNC("Refresh Object Buffer", tracy::Color::Red);
 
 		size_t copySize = m_RenderScene.renderables.size() * sizeof(GPUObjectData);
-		if (m_RenderScene.objectDataBuffer.size < copySize);
+		if ((size_t)m_RenderScene.objectDataBuffer.size < copySize)
 		{
 			ReallocateBuffer(m_RenderScene.objectDataBuffer, copySize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 		}
@@ -67,7 +67,7 @@ void VulkanEngine::ReadyMeshDraw(VkCommandBuffer cmd)
 
 			uint32_t* targetData = MapBuffer(targetBuffer);
 			GPUObjectData* objectSSBO = MapBuffer(newBuffer);
-			uint32_t launchCount = m_RenderScene.dirtyObjects.size() * wordSize;
+			uint32_t launchCount = (uint32_t)(m_RenderScene.dirtyObjects.size() * wordSize);
 			{
 				ZoneScopedNC("Write diry Objects", tracy::Color::Red);
 				uint32_t sidx = 0;
@@ -147,7 +147,7 @@ void VulkanEngine::DrawObjectsForward(VkCommandBuffer cmd, RenderScene::MeshPass
 	m_SceneParameters.ambientColor = glm::vec4{ 0.5f };
 	m_SceneParameters.sunlightColor = glm::vec4{ 1.f };
 	m_SceneParameters.sunlightDirection = glm::vec4{ m_MainLight.lightDirection * 1.f, 1.f };
-	m_SceneParameters.sunlightColor.w = CVAR_Shadowcast.Get() ? 0 : 1;
+	m_SceneParameters.sunlightColor.w = CVAR_Shadowcast.Get() ? 0.f : 1.f;
 
 	//Push datas to Dynamic memory
 	currentFrame.dynamicData.PushBegin();
@@ -248,7 +248,7 @@ void VulkanEngine::ExecuteDrawCommands(VkCommandBuffer cmd, RenderScene::MeshPas
 		vkCmdBindVertexBuffers(cmd, 0, 1, &m_RenderScene.mergedVertexBuffer.buffer, &offset);
 		vkCmdBindIndexBuffer(cmd, m_RenderScene.mergedVertexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-		m_Stats.objects = passs.flatRenderBatches.size();
+		m_Stats.objects = (int)passs.flatRenderBatches.size();
 		for (int i = 0; i < passs.multibatches.size(); ++i)
 		{
 			auto& multibatch = passs.multibatches[i];
@@ -264,7 +264,7 @@ void VulkanEngine::ExecuteDrawCommands(VkCommandBuffer cmd, RenderScene::MeshPas
 				lastPipeline = newPipeline;
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, newPipeline);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, newLayout, 1, 1, &objectDataSet, 0, nullptr);
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, newLayout, 0, 1, &globalSet, dynamicOffsets.size(), dynamicOffsets.data());
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, newLayout, 0, 1, &globalSet, (uint32_t)dynamicOffsets.size(), dynamicOffsets.data());
 			}
 			if (newMaterialSet != lastMaterialSet)
 			{
@@ -299,15 +299,15 @@ void VulkanEngine::ExecuteDrawCommands(VkCommandBuffer cmd, RenderScene::MeshPas
 			bool hasIndices = drawMesh->indices.size() > 0;
 			if (!hasIndices)
 			{
-				m_Stats.triangles += drawMesh->vertices.size() / 3 * instanceDraw.count;
-				vkCmdDraw(cmd, drawMesh->vertices.size(), instanceDraw.count, 0, instanceDraw.first);
+				m_Stats.triangles += (int)drawMesh->vertices.size() / 3 * instanceDraw.count;
+				vkCmdDraw(cmd, (uint32_t)drawMesh->vertices.size(), instanceDraw.count, 0, instanceDraw.first);
 
 				++m_Stats.draws;
 				m_Stats.drawcalls += instanceDraw.count;
 			}
 			else
 			{
-				m_Stats.triangles += drawMesh->indices.size() / 3 * instanceDraw.count;
+				m_Stats.triangles += (int)drawMesh->indices.size() / 3 * instanceDraw.count;
 				vkCmdDrawIndexedIndirect(cmd, passs.drawIndirectBuffer.buffer, multibatch.first * sizeof(GPUIndirectObject), multibatch.count, sizeof(GPUIndirectObject));
 
 				++m_Stats.draws;
@@ -337,7 +337,7 @@ void VulkanEngine::ReduceDepth(VkCommandBuffer cmd)
 	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, 0, 0, 0, 1, depthReadBarriers);
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_DepthReducePipeline);
 
-	for (int32_t i = 0; i < m_DepthPyramidLevels; ++i)
+	for (uint32_t i = 0; i < m_DepthPyramidLevels; ++i)
 	{
 		VkDescriptorImageInfo dstTarget;
 		dstTarget.sampler = m_DepthSampler;
@@ -440,9 +440,9 @@ void VulkanEngine::ExecuteComputeCull(VkCommandBuffer cmd, RenderScene::MeshPass
 	cullData.frustum[3] = frustumY.z;
 	cullData.lodBase = 10.f;
 	cullData.lodStep = 1.5f;
-	cullData.pyramidWidth = m_DepthPyramidWidth;
-	cullData.pyramidHeight = m_DepthPyramidHeight;
-	cullData.drawCount = pass.flatRenderBatches.size();
+	cullData.pyramidWidth = (float)m_DepthPyramidWidth;
+	cullData.pyramidHeight = (float)m_DepthPyramidHeight;
+	cullData.drawCount = (uint32_t)pass.flatRenderBatches.size();
 	cullData.cullingEnabled = params.frustrumCull;
 	cullData.lodEnabled = false;
 	cullData.occlusionEnabled = params.occlusionCull;
@@ -482,7 +482,7 @@ void VulkanEngine::ExecuteComputeCull(VkCommandBuffer cmd, RenderScene::MeshPass
 		debugCopy.size = pass.indirectBatches.size() * sizeof(GPUIndirectObject);
 		debugCopy.srcOffset = 0;
 		vkCmdCopyBuffer(cmd, pass.drawIndirectBuffer.buffer, GetCurrentFrame().debugOutputBuffer.buffer, 1, &debugCopy);
-		GetCurrentFrame().debugDataOffsets.push_back(offset + debugCopy.size);
+		GetCurrentFrame().debugDataOffsets.push_back(offset + (uint32_t)debugCopy.size);
 		GetCurrentFrame().debugDataNames.push_back("Cull Indirect Output");
 	}
 }

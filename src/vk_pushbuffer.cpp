@@ -1,4 +1,5 @@
 #include <vk_pushbuffer.h>
+#include <assert.h>
 
 uint32_t vkutil::PushBuffer::Push(void* data, size_t size)
 {
@@ -6,8 +7,9 @@ uint32_t vkutil::PushBuffer::Push(void* data, size_t size)
 	char* target = (char*)mapped;
 	target += currentOffset;
 	memcpy(target, data, size);
-	currentOffset += size;
+	currentOffset += (uint32_t)size;
 	currentOffset = pad_uniform_buffer_size(currentOffset);
+	return offset;
 }
 
 void vkutil::PushBuffer::Init(VmaAllocator& allocator, AllocatedBufferUntyped sourceBuffer, uint32_t alignment)

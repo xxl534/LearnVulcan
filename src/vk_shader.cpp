@@ -217,7 +217,7 @@ void ShaderEffect::ReflectLayout(VkDevice device, ReflectionOverrides* overrides
 			++compactedCount;
 		}
 	}
-	VkPipelineLayoutCreateInfo layoutInfo = vkinit::pipeline_layout_create_info(constantRanges.data(), constantRanges.size(), compactedLayouts.data(), compactedCount);
+	VkPipelineLayoutCreateInfo layoutInfo = vkinit::pipeline_layout_create_info(constantRanges.data(), (uint32_t)constantRanges.size(), compactedLayouts.data(), compactedCount);
 	vkCreatePipelineLayout(device, &layoutInfo, nullptr, &builtLayout);
 }
 

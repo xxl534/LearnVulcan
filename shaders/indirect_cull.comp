@@ -42,7 +42,7 @@ struct ObjectData{
     mat4 model;
     vec4 sphereBounds;
     vec4 extents;
-}
+};
 
 layout(std140, set= 0, binding = 0) readonly buffer ObjectBuffer{
     ObjectData objects[];
@@ -57,7 +57,7 @@ struct DrawCommand
     uint firstInstance;
     uint objectId;
     uint batchId;
-}
+};
 
 layout(set = 0, binding = 1) buffer InstanceBuffer{
     DrawCommand draws[];
@@ -66,7 +66,7 @@ layout(set = 0, binding = 1) buffer InstanceBuffer{
 struct GPUInstance{
     uint objectId;
     uint batchId;
-}
+};
 
 layout(set = 0, binding = 2) readonly buffer InstanceBuffer2{
     GPUInstance instances[];
@@ -77,7 +77,7 @@ layout(set = 0, binding = 3) buffer InstanceBuffer3{
 } finalInstanceBuffer;
 
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
-bool projectSphere(vec3 center float radius, float znear, float P00, float P11, out vec4 aabb)
+bool projectSphere(vec3 center, float radius, float znear, float P00, float P11, out vec4 aabb)
 {
     if (center.z < radius + znear)
 		return false;
@@ -104,13 +104,13 @@ bool IsVisible(uint objectIndex)
     vec4 sphereBounds = objectBuffer.objects[index].sphereBounds;
 
     vec3 center = sphereBounds.xyz;
-    center = (cullData.view * vec4(center,1.f)).xyz;
+    center = (cullData.viewMat * vec4(center,1.f)).xyz;
     float radius = sphereBounds.w;
     
 	// the left/top/right/bottom plane culling utilizes frustum symmetry to cull against two planes at the same time
     bool visible = cullData.cullingEnabled == 0 
             || ((center.z * cullData.frustum[1] - abs(center.x) * cullData.frustum[0] > -radius)
-                && (center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius);
+                && (center.z * cullData.frustum[3] - abs(center.y) * cullData.frustum[2] > -radius)
                 && (cullData.distCull == 0 
                     || (center.z + radius > cullData.znear && center.z - radius < cullData.zfar)));
     
@@ -121,7 +121,7 @@ bool IsVisible(uint objectIndex)
     if(visible && cullData.occlusionEnabled != 0)
     {
         vec4 aabb;
-        if(projectSphere(center, radius, cullData.znearm cullData.p00, cullData.p11, aabb))
+        if(projectSphere(center, radius, cullData.znear, cullData.p00, cullData.p11, aabb))
         {
             float width = (aabb.z - aabb.x) * cullData.pyramidWidth;
             float height = (aabb.w - aabb.y) * cullData.pyramidHeight;
@@ -129,19 +129,40 @@ bool IsVisible(uint objectIndex)
             float level = floor(log2(max(width, height)));
 
             float depth = textureLod(depthPyramid, (aabb.xy + aabb.zw) * 0.5, level).x;
-            float depthSphere = cullData.znear / (center.z - radius)
+            float depthSphere = cullData.znear / (center.z - radius);
 
             visible = depthSphere >= depth;
         }
     }
     return  visible;
 }
+
+bool IsVisibleAABB(uint objectIndex)
+{
+    uint index = objectIndex;
+
+    vec4 sphereBounds = objectBuffer.objects[index].sphereBounds;
+
+    vec3 center = sphereBounds.xyz;
+
+    float radius = sphereBounds.w;
+
+    vec3 aabbMin = vec3(cullData.aabbMinX, cullData.aabbMinY, cullData.aabbMinZ) - vec3(radius);
+    vec3 aabbMax = vec3(cullData.aabbMinX, cullData.aabbMinY, cullData.aabbMinZ) + vec3(radius);
+
+    bool visible = center.x > aabbMin.x && center.x < aabbMax.x
+        &&center.y > aabbMin.y && center.y < aabbMax.y
+        &&center.z > aabbMin.z && center.z < aabbMax.z;
+
+    return visible;
+}
+
 void main()
 {
     uint gId = gl_GlobalInvocationID.x;
     if(gId < cullData.drawCount)
     {
-        uint objectId = compactInstanceBuffer.instanceCount[gId].objectId;
+        uint objectId = compactInstanceBuffer.instances[gId].objectId;
         bool visible = false;
         if(cullData.AABBCheck == 0)
         {
@@ -149,7 +170,7 @@ void main()
         }
         else
         {
-            visible = isVisibleAABB(objectId);
+            visible = IsVisibleAABB(objectId);
         }
 
         if(visible)

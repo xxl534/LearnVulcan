@@ -4,6 +4,7 @@
 #include <vector>
 #include <glm/vec3.hpp>
 #include <glm/vec2.hpp>
+#include <mesh_asset.h>
 
 struct VertexInputDescription {
 	std::vector<VkVertexInputBindingDescription> bindings;

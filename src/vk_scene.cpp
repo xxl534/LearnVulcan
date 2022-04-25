@@ -121,7 +121,7 @@ void RenderScene::FillInstancesArray(GPUInstance* data, MeshPass& pass)
     {
         auto batch = pass.indirectBatches[i];
 
-        for (int b = 0; b < batch.count; ++b)
+        for (uint32_t b = 0; b < batch.count; ++b)
         {
             data[dataIndex].objectId = pass.Get(pass.flatRenderBatches[b + batch.first].object)->originalObjectId.handle;
             data[dataIndex].batchId = i;
@@ -301,7 +301,7 @@ void RenderScene::RefreshPass(MeshPass* pass)
             }
             else
             {
-                handle = pass->passObjects.size();
+                handle = (uint32_t)pass->passObjects.size();
                 pass->passObjects.push_back(newPassObject);
             }
 

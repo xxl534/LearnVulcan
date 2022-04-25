@@ -23,7 +23,7 @@ layout(set =0, binding = 2) buffer TargetDataBuffer{
 
 void main()
 {
-    uint gId = gl_GlobalInvocationID;
+    uint gId = gl_GlobalInvocationID.x;
     if(gId < count)
     {
         uint idx = target.idx[gId];
