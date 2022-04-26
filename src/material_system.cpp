@@ -288,15 +288,12 @@ VkPipeline ComputePipelineBuilder::BuildPipeline(VkDevice device)
 	pipelineInfo.stage = shaderStage;
 	pipelineInfo.layout = pipelineLayout;
 
-	VkPipeline newPipeline;
+	VkPipeline newPipeline = VK_NULL_HANDLE;
 	if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS)
 	{
 		LOG_FATAL("Failed to build compute pipeline");
 	}
-	else
-	{
-		return newPipeline;
-	}
+	return newPipeline;
 }
 
 bool vkutil::MaterialData::operator==(const MaterialData& other) const

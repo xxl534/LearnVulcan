@@ -46,9 +46,9 @@ VkPipelineVertexInputStateCreateInfo vkinit::vertex_input_state_create_info(Vert
 
 	if (pInputDesc != nullptr)
 	{
-		info.vertexBindingDescriptionCount = pInputDesc->bindings.size();
+		info.vertexBindingDescriptionCount = (uint32_t)pInputDesc->bindings.size();
 		info.pVertexBindingDescriptions = pInputDesc->bindings.data();
-		info.vertexAttributeDescriptionCount = pInputDesc->attributes.size();
+		info.vertexAttributeDescriptionCount = (uint32_t)pInputDesc->attributes.size();
 		info.pVertexAttributeDescriptions = pInputDesc->attributes.data();
 	}
 	else
@@ -117,7 +117,7 @@ VkPipelineColorBlendAttachmentState vkinit::color_blend_attachment_state()
 
 VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info(const std::vector<VkPushConstantRange>& constantRanges, const std::vector<VkDescriptorSetLayout>& layouts)
 {
-	return pipeline_layout_create_info(constantRanges.data(), constantRanges.size(), layouts.data(), layouts.size());
+	return pipeline_layout_create_info(constantRanges.data(), (uint32_t)constantRanges.size(), layouts.data(), (uint32_t)layouts.size());
 }
 
 VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info(const VkPushConstantRange* constantRanges, uint32_t constantCount, const VkDescriptorSetLayout* layouts, uint32_t layoutCount)
@@ -279,7 +279,7 @@ VkSubmitInfo vkinit::submit_info(VkCommandBuffer* cmd)
 
 VkPresentInfoKHR vkinit::present_info()
 {
-	VkPresentInfoKHR info = vkinit::present_info();
+	VkPresentInfoKHR info{};
 	info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	info.pNext = nullptr;
 
