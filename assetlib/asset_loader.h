@@ -17,7 +17,7 @@ namespace assets
 		LZ4,
 	};
 
-	bool save_binaryFile(const char* path, const AssetFile& file);
+	bool SaveBinaryFile(const char* path, const AssetFile& file);
 
 	bool LoadBinaryFile(const char* path, AssetFile& outputFile);
 

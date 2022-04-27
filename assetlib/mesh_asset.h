@@ -51,5 +51,5 @@ namespace assets {
 
 	AssetFile pack_mesh(MeshInfo* info, char* vertexData, char* indexData);
 
-	MeshBounds Calculatebounds(Vertex_f32_PNCV* vertices, size_t count);
+	MeshBounds CalculateBounds(Vertex_f32_PNCV* vertices, size_t count);
 }

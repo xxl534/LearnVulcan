@@ -102,20 +102,20 @@ bool convert_image(const fs::path& input, const fs::path& output)
 
 	while (surface.canMakeNextMipmap(1))
 	{
-			surface.buildNextMipmap(nvtt::MipmapFilter_Box);
+		surface.buildNextMipmap(nvtt::MipmapFilter_Box);
 
-			optiuns.setFormat(nvtt::Format::Format_RGBA);
-			optiuns.setPixelType(nvtt::PixelType_UnsignedNorm);
+		optiuns.setFormat(nvtt::Format::Format_RGBA);
+		optiuns.setPixelType(nvtt::PixelType_UnsignedNorm);
 
-			compressor.compress(surface, 0, 0, optiuns, outputOptions);
+		compressor.compress(surface, 0, 0, optiuns, outputOptions);
 
-			texinfo.pages.push_back({});
-			texinfo.pages.back().width = surface.width();
-			texinfo.pages.back().height = surface.height();
-			texinfo.pages.back().originalSize = handler.buffer.size();
+		texinfo.pages.push_back({});
+		texinfo.pages.back().width = surface.width();
+		texinfo.pages.back().height = surface.height();
+		texinfo.pages.back().originalSize = (uint32_t)handler.buffer.size();
 
-			all_buffer.insert(all_buffer.end(), handler.buffer.begin(), handler.buffer.end());
-			handler.buffer.clear();
+		all_buffer.insert(all_buffer.end(), handler.buffer.begin(), handler.buffer.end());
+		handler.buffer.clear();
 	}
 	
 
@@ -131,7 +131,7 @@ bool convert_image(const fs::path& input, const fs::path& output)
 
 	stbi_image_free(pixels);
 
-	save_binaryfile(output.string().c_str(), newImage);
+	SaveBinaryFile(output.string().c_str(), newImage);
 
 	return true;
 }
@@ -258,7 +258,7 @@ bool convert_mesh(const fs::path& input, const fs::path& output)
 	meshinfo.indexSize = sizeof(uint32_t);
 	meshinfo.originalFile = input.string();	
 
-	meshinfo.bounds = assets::Calculatebounds(_vertices.data(), _vertices.size());
+	meshinfo.bounds = assets::CalculateBounds(_vertices.data(), _vertices.size());
 	//pack mesh file
 	auto start = std::chrono::high_resolution_clock::now();
 
@@ -271,7 +271,7 @@ bool convert_mesh(const fs::path& input, const fs::path& output)
 	std::cout << "compression took " << std::chrono::duration_cast<std::chrono::nanoseconds>(diff).count() / 1000000.0 << "ms" << std::endl;
 
 	//save to disk
-	save_binaryfile(output.string().c_str(), newFile);
+	SaveBinaryFile(output.string().c_str(), newFile);
 	
 	return true;
 }
@@ -509,19 +509,19 @@ bool extract_gltf_meshes(tinygltf::Model& model, const fs::path& input, const fs
 
 			MeshInfo meshinfo;
 			meshinfo.vertexFormat = VertexFormatEnum;
-			meshinfo.vertexBuferSize = _vertices.size() * sizeof(VertexFormat);
-			meshinfo.indexBuferSize = _indices.size() * sizeof(uint32_t);
+			meshinfo.vertexBufferSize = _vertices.size() * sizeof(VertexFormat);
+			meshinfo.indexBufferSize = _indices.size() * sizeof(uint32_t);
 			meshinfo.indexSize = sizeof(uint32_t);
 			meshinfo.originalFile = input.string();
 
-			meshinfo.bounds = assets::calculateBounds(_vertices.data(), _vertices.size());
+			meshinfo.bounds = assets::CalculateBounds(_vertices.data(), _vertices.size());
 
 			assets::AssetFile newFile = assets::pack_mesh(&meshinfo, (char*)_vertices.data(), (char*)_indices.data());
 
 			fs::path meshpath = outputFolder / (meshname + ".mesh");
 
 			//save to disk
-			save_binaryfile(meshpath.string().c_str(), newFile);
+			SaveBinaryFile(meshpath.string().c_str(), newFile);
 		}
 	}
 	return true;
@@ -637,7 +637,7 @@ void extract_gltf_materials(tinygltf::Model& model, const fs::path& input, const
 		assets::AssetFile newFile = assets::pack_material(&newMaterial);
 
 		//save to disk
-		save_binaryfile(materialPath.string().c_str(), newFile);
+		SaveBinaryFile(materialPath.string().c_str(), newFile);
 	}
 }
 
@@ -827,7 +827,7 @@ void extract_gltf_nodes(tinygltf::Model& model, const fs::path& input, const fs:
 	scenefilepath.replace_extension(".pfb");
 
 	//save to disk
-	save_binaryfile(scenefilepath.string().c_str(), newFile);
+	SaveBinaryFile(scenefilepath.string().c_str(), newFile);
 }
 std::string calculate_assimp_mesh_name(const aiScene* scene, int meshIndex)
 {
@@ -928,7 +928,7 @@ void extract_assimp_materials(const aiScene* scene, const fs::path& input, const
 		assets::AssetFile newFile = assets::pack_material(&newMaterial);
 
 		//save to disk
-		save_binaryfile(materialPath.string().c_str(), newFile);
+		SaveBinaryFile(materialPath.string().c_str(), newFile);
 	}
 }
 void extract_assimp_meshes(const aiScene* scene, const fs::path& input, const fs::path& outputFolder, const ConverterState& convState)
@@ -1021,19 +1021,19 @@ void extract_assimp_meshes(const aiScene* scene, const fs::path& input, const fs
 
 		MeshInfo meshinfo;
 		meshinfo.vertexFormat = VertexFormatEnum;
-		meshinfo.vertexBuferSize = _vertices.size() * sizeof(VertexFormat);
-		meshinfo.indexBuferSize = _indices.size() * sizeof(uint32_t);
+		meshinfo.vertexBufferSize = _vertices.size() * sizeof(VertexFormat);
+		meshinfo.indexBufferSize = _indices.size() * sizeof(uint32_t);
 		meshinfo.indexSize = sizeof(uint32_t);
 		meshinfo.originalFile = input.string();
 
-		meshinfo.bounds = assets::calculateBounds(_vertices.data(), _vertices.size());
+		meshinfo.bounds = assets::CalculateBounds(_vertices.data(), _vertices.size());
 
 		assets::AssetFile newFile = assets::pack_mesh(&meshinfo, (char*)_vertices.data(), (char*)_indices.data());
 
 		fs::path meshpath = outputFolder / (meshname + ".mesh");
 
 		//save to disk
-		save_binaryfile(meshpath.string().c_str(), newFile);		
+		SaveBinaryFile(meshpath.string().c_str(), newFile);		
 	}	
 }
 void extract_assimp_nodes(const aiScene* scene, const fs::path& input, const fs::path& outputFolder, const ConverterState& convState)
@@ -1134,7 +1134,7 @@ void extract_assimp_nodes(const aiScene* scene, const fs::path& input, const fs:
 	scenefilepath.replace_extension(".pfb");
 
 	//save to disk
-	save_binaryfile(scenefilepath.string().c_str(), newFile);
+	SaveBinaryFile(scenefilepath.string().c_str(), newFile);
 }
 
 int main(int argc, char* argv[])

@@ -1187,7 +1187,7 @@ void VulkanEngine::InitPipelines()
 	ShaderEffect* blitEffect = new ShaderEffect();
 	blitEffect->AddStage(m_ShaderCache.GetShader(ShaderPath("fullscreen.vert.spv")), VK_SHADER_STAGE_VERTEX_BIT);
 	blitEffect->AddStage(m_ShaderCache.GetShader(ShaderPath("Blit.frag.spv")), VK_SHADER_STAGE_FRAGMENT_BIT);
-	blitEffect->ReflectLayout(m_Device, nu, 0);
+	blitEffect->ReflectLayout(m_Device, nullptr, 0);
 
 	PipelineBuilder pipelineBuilder;
 	pipelineBuilder.inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);

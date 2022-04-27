@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 
-bool assets::save_binaryFile(const char* path, const AssetFile& file)
+bool assets::SaveBinaryFile(const char* path, const AssetFile& file)
 {
 	std::ofstream outfile;
 	outfile.open(path, std::ios::binary | std::ios::out);
