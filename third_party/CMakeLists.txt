@@ -125,8 +125,11 @@ target_sources(fmt_lib PRIVATE ${FMT_FILES})
 
 
 add_library(assimp INTERFACE)
+
 set(assimp_dir "${CMAKE_CURRENT_SOURCE_DIR}/assimp_build")
-set(assimp_dll "${CMAKE_CURRENT_SOURCE_DIR}/assimp_build/bin/Release/assimp-vc142-mt.dll")
-set(assimp_lib "${CMAKE_CURRENT_SOURCE_DIR}/assimp_build/lib/Release/assimp-vc142-mt.lib")
+set(assimp_foldername "$<IF:$<CONFIG:Debug>,Debug,Release>")
+set(assimp_filename "assimp-vc142-mt$<IF:$<CONFIG:Debug>,d,>")
+set(assimp_dll "${CMAKE_CURRENT_SOURCE_DIR}/assimp_build/bin/${assimp_foldername}/${assimp_filename}.dll")
+set(assimp_lib "${CMAKE_CURRENT_SOURCE_DIR}/assimp_build/lib/${assimp_foldername}/${assimp_filename}.lib")
 target_include_directories(assimp INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/assimp/include")
 target_link_libraries(assimp INTERFACE "${assimp_lib}" )
